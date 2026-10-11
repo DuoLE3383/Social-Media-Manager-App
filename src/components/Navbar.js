@@ -1,14 +1,14 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faHome, faUser, faSignOutAlt } from '@fortawesome/free-solid-svg-icons';
+import { faHome, faUser, faSignOutAlt, faWandMagicSparkles } from '@fortawesome/free-solid-svg-icons';
 
 const Navbar = ({ user, onLogout }) => {
   return (
     <nav className="navbar navbar-expand-lg navbar-dark bg-primary sticky-top">
       <div className="container">
-        <Link className="navbar-brand fw-bold" to="/dashboard">
-          📱 SocialConnect
+        <Link className="navbar-brand fw-bold" to="/prompts">
+          ✦ Social Studio
         </Link>
         
         <button 
@@ -25,9 +25,10 @@ const Navbar = ({ user, onLogout }) => {
             <li className="nav-item">
               <Link className="nav-link" to="/dashboard">
                 <FontAwesomeIcon icon={faHome} className="me-1" />
-                Home
+                Feed
               </Link>
             </li>
+            <li className="nav-item"><Link className="nav-link" to="/prompts"><FontAwesomeIcon icon={faWandMagicSparkles} className="me-1" />Prompt Studio</Link></li>
             <li className="nav-item">
               <Link className="nav-link" to="/profile">
                 <FontAwesomeIcon icon={faUser} className="me-1" />
@@ -44,7 +45,7 @@ const Navbar = ({ user, onLogout }) => {
                 data-bs-toggle="dropdown"
               >
                 <img 
-                  src={user?.picture || 'https://via.placeholder.com/32'} 
+                  src={user?.picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'User')}&background=ecebff&color=5047a8`}
                   alt="Profile" 
                   className="rounded-circle me-2"
                   width="32" 

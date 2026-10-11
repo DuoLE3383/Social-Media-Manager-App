@@ -1,126 +1,38 @@
 import React, { useState } from 'react';
-import FacebookLogin from 'react-facebook-login';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faFacebook } from '@fortawesome/free-brands-svg-icons';
+import { supabase } from '../lib/supabase';
 
-const Login = ({ onLogin }) => {
+export default function Login({ onLogin }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [creatingAccount, setCreatingAccount] = useState(false);
+  const [message, setMessage] = useState('');
 
-  // Facebook App ID - Replace with your actual Facebook App ID
-  const FACEBOOK_APP_ID = '1230632838187127'; // You need to replace this with your actual Facebook App ID
-
-  const handleFacebookResponse = (response) => {
-    if (response.accessToken) {
-      console.log('Facebook login successful:', response);
-      const userData = {
-        id: response.id,
-        name: response.name,
-        email: response.email,
-        picture: response.picture.data.url,
-        provider: 'facebook',
-        accessToken: response.accessToken
-      };
-      onLogin(userData);
-    } else {
-      console.log('Facebook login failed');
-      setError('Facebook login failed. Please try again.');
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (!email.trim() || !password) { setError('Enter an email and password to continue.'); return; }
+    setError(''); setMessage('');
+    if (supabase) {
+      const { data, error: authError } = creatingAccount
+        ? await supabase.auth.signUp({ email: email.trim(), password, options: { data: { name: email.split('@')[0] } } })
+        : await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      if (authError) { setError(authError.message); return; }
+      if (data.user && data.session) onLogin({ id: data.user.id, name: data.user.user_metadata?.name || email.split('@')[0], email: data.user.email, picture: '' });
+      else setMessage('Check your email to confirm your account, then sign in.');
+      return;
     }
+    onLogin({ id: `demo_${email.trim().toLowerCase()}`, name: email.split('@')[0], email: email.trim(), picture: '', provider: 'demo' });
   };
 
-  const handleRegularLogin = (e) => {
-    e.preventDefault();
-    if (email && password) {
-      // Simple demo login - in a real app, you'd validate against a backend
-      const userData = {
-        id: 'demo_user',
-        name: 'Demo User',
-        email: email,
-        picture: 'https://via.placeholder.com/150',
-        provider: 'regular'
-      };
-      onLogin(userData);
-    } else {
-      setError('Please enter both email and password');
-    }
-  };
-
-  return (
-    <div className="login-container">
-      <div className="row justify-content-center">
-        <div className="col-md-6 col-lg-4">
-          <div className="card shadow-lg">
-            <div className="card-body p-5">
-              <div className="text-center mb-4">
-                <h2 className="card-title text-primary">Social Media App</h2>
-                <p className="text-muted">Connect with friends and share your moments</p>
-              </div>
-
-              {error && (
-                <div className="alert alert-danger" role="alert">
-                  {error}
-                </div>
-              )}
-
-              {/* Facebook Login */}
-              <div className="mb-4">
-                <FacebookLogin
-                  appId={FACEBOOK_APP_ID}
-                  autoLoad={false}
-                  fields="name,email,picture"
-                  callback={handleFacebookResponse}
-                  cssClass="btn btn-primary btn-lg w-100 d-flex align-items-center justify-content-center"
-                  icon={<FontAwesomeIcon icon={faFacebook} className="me-2" />}
-                  textButton="Continue with Facebook"
-                />
-              </div>
-
-              <div className="text-center mb-3">
-                <span className="text-muted">or</span>
-              </div>
-
-              {/* Regular Login Form */}
-              <form onSubmit={handleRegularLogin}>
-                <div className="mb-3">
-                  <label htmlFor="email" className="form-label">Email</label>
-                  <input
-                    type="email"
-                    className="form-control"
-                    id="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter your email"
-                  />
-                </div>
-                <div className="mb-3">
-                  <label htmlFor="password" className="form-label">Password</label>
-                  <input
-                    type="password"
-                    className="form-control"
-                    id="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password"
-                  />
-                </div>
-                <button type="submit" className="btn btn-success btn-lg w-100">
-                  Sign In
-                </button>
-              </form>
-
-              <div className="text-center mt-3">
-                <small className="text-muted">
-                  Don't have an account? <button className="btn btn-link p-0 text-primary">Sign up</button>
-                </small>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default Login;
-
+  return <div className="login-container"><div className="row justify-content-center"><div className="col-md-6 col-lg-4"><div className="card shadow-lg"><div className="card-body p-5">
+    <div className="text-center mb-4"><div className="login-mark">✦</div><h1 className="h3 card-title">Social Studio</h1><p className="text-muted">A calmer workspace for planning and creating social content.</p></div>
+    {supabase ? <div className="alert alert-success small">Secure email authentication is enabled with Supabase.</div> : <div className="alert alert-warning small">Demo sign-in stores a local profile in this browser. Configure Supabase Auth before using this app with real user accounts.</div>}
+    {error && <div className="alert alert-danger" role="alert">{error}</div>}
+    {message && <div className="alert alert-info" role="status">{message}</div>}
+    <form onSubmit={handleSubmit}><div className="mb-3"><label htmlFor="email" className="form-label">Email</label><input type="email" className="form-control" id="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" autoComplete="email" required /></div>
+      <div className="mb-4"><label htmlFor="password" className="form-label">Password</label><input type="password" className="form-control" id="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Any value in demo mode" autoComplete="current-password" required /></div>
+      <button type="submit" className="btn btn-primary btn-lg w-100">{supabase ? (creatingAccount ? 'Create account' : 'Sign in') : 'Continue in demo mode'}</button>
+    </form>
+    {supabase && <button type="button" className="btn btn-link w-100 mt-2" onClick={() => { setCreatingAccount(!creatingAccount); setError(''); setMessage(''); }}>{creatingAccount ? 'Already registered? Sign in' : 'New here? Create an account'}</button>}
+  </div></div></div></div></div>;
+}

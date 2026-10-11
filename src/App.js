@@ -6,30 +6,43 @@ import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import Profile from './components/Profile';
 import Navbar from './components/Navbar';
+import PromptStudio from './components/PromptStudio';
+import { supabase } from './lib/supabase';
 
 function App() {
   const [user, setUser] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const isAuthenticated = Boolean(user);
 
   useEffect(() => {
+    if (supabase) {
+      supabase.auth.getSession().then(({ data }) => {
+        const sessionUser = data.session?.user;
+        if (sessionUser) setUser({ id: sessionUser.id, email: sessionUser.email, name: sessionUser.user_metadata?.name || sessionUser.email?.split('@')[0], picture: '' });
+      });
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        const sessionUser = session?.user;
+        if (sessionUser) setUser({ id: sessionUser.id, email: sessionUser.email, name: sessionUser.user_metadata?.name || sessionUser.email?.split('@')[0], picture: '' });
+        else setUser(null);
+      });
+      return () => subscription.unsubscribe();
+    }
     // Check if user is stored in localStorage
     const storedUser = localStorage.getItem('socialMediaUser');
     if (storedUser) {
-      setUser(JSON.parse(storedUser));
-      setIsAuthenticated(true);
+      try { setUser(JSON.parse(storedUser)); }
+      catch { localStorage.removeItem('socialMediaUser'); }
     }
   }, []);
 
   const handleLogin = (userData) => {
     setUser(userData);
-    setIsAuthenticated(true);
-    localStorage.setItem('socialMediaUser', JSON.stringify(userData));
+    if (!supabase) localStorage.setItem('socialMediaUser', JSON.stringify(userData));
   };
 
   const handleLogout = () => {
     setUser(null);
-    setIsAuthenticated(false);
-    localStorage.removeItem('socialMediaUser');
+    if (supabase) supabase.auth.signOut();
+    else localStorage.removeItem('socialMediaUser');
   };
 
   return (
@@ -43,7 +56,7 @@ function App() {
               element={
                 !isAuthenticated ? 
                 <Login onLogin={handleLogin} /> : 
-                <Navigate to="/dashboard" />
+                <Navigate to="/prompts" />
               } 
             />
             <Route 
@@ -54,6 +67,7 @@ function App() {
                 <Navigate to="/login" />
               } 
             />
+            <Route path="/prompts" element={isAuthenticated ? <PromptStudio user={user} /> : <Navigate to="/login" />} />
             <Route 
               path="/profile" 
               element={
@@ -66,7 +80,7 @@ function App() {
               path="/" 
               element={
                 isAuthenticated ? 
-                <Navigate to="/dashboard" /> : 
+                <Navigate to="/prompts" /> :
                 <Navigate to="/login" />
               } 
             />

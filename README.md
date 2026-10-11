@@ -1,174 +1,46 @@
-# Social Media React App
+# Social Studio
 
-A full-featured social media application built with React, featuring Facebook authentication, post creation, commenting, likes, and user profiles.
+A React workspace for social media planning and AI-assisted drafting. It includes 15 prompt workflows, editable prompts, browser-local brand context and run history, an Ollama/OpenAI-compatible API, optional Supabase email authentication, and a Supabase starter schema with row-level security.
 
-## 🚀 Features
+## Run locally
 
-- **Facebook Login Integration** - Secure authentication using Facebook OAuth
-- **User Dashboard** - Home feed with posts from all users
-- **Post Creation** - Create posts with text and media support
-- **Interactions** - Like, comment, and share posts
-- **User Profiles** - Detailed profile pages with editable information
-- **Responsive Design** - Beautiful UI that works on all devices
-- **Real-time Updates** - Dynamic content updates
+Requirements: Node.js 18+ (the API uses native `fetch`) and npm.
 
-## 🛠️ Technologies Used
+1. Install dependencies: `npm install`
+2. Copy `.env.example` to `.env` and adjust values as needed.
+3. Start Ollama and pull the model configured in `LLM_MODEL` (default: `llama3.2`), or configure an OpenAI API key.
+4. Start the API: `npm run server`
+5. In another terminal start the React app: `npm start`
 
-- **React 19** - Frontend framework
-- **React Router** - Navigation and routing
-- **Bootstrap 5** - UI components and styling
-- **FontAwesome** - Icons
-- **react-facebook-login** - Facebook authentication
-- **Axios** - HTTP client (ready for backend integration)
+The React development server proxies `/api` to `http://localhost:8787`. The default Ollama URL is `http://127.0.0.1:11434`. The API binds to loopback by default.
 
-## 📦 Installation
+## AI providers
 
-1. Clone the repository:
-```bash
-git clone <your-repo-url>
-cd social-media-react
-```
+The server selects one provider using environment variables. Provider credentials stay on the server and are never sent to the browser.
 
-2. Install dependencies:
-```bash
-npm install
-```
+**Ollama:** set `LLM_PROVIDER=ollama`, `OLLAMA_URL`, and `LLM_MODEL`. This works when the API process can reach that Ollama host. A hosted SaaS backend cannot reach Ollama on a customer's computer via its own `localhost`; supporting that requires a local companion/agent or a secure customer-managed tunnel. Do not expose Ollama's unauthenticated port directly to the public internet.
 
-3. Set up Facebook App ID:
-   - Go to [Facebook Developers](https://developers.facebook.com/)
-   - Create a new app or use an existing one
-   - Copy your App ID
-   - Open `src/components/Login.js`
-   - Replace `1234567890123456` with your actual Facebook App ID
+**OpenAI-compatible API:** set `LLM_PROVIDER=openai`, `LLM_MODEL`, and `OPENAI_API_KEY`. Optionally set `OPENAI_BASE_URL` for a compatible endpoint. **Anthropic:** set `LLM_PROVIDER=anthropic`, `LLM_MODEL`, and `ANTHROPIC_API_KEY`. The current router selects one server-configured provider; per-user tier routing and provider failover are not implemented.
 
-4. Start the development server:
-```bash
-npm start
-```
+The API has a small in-memory per-user rate limit and payload limit. When server Supabase credentials are set, it verifies the Supabase bearer token before generation. Before internet-facing production use, add persistent quotas, distributed rate limiting, request timeouts/observability, billing enforcement, and a deployment-specific origin allowlist. Never expose the Supabase service-role key to the frontend.
 
-The app will open at [http://localhost:3000](http://localhost:3000)
+## Supabase authentication and data
 
-## 🔧 Facebook Login Setup
+1. Create a Supabase project and configure email authentication and redirect URLs.
+2. Copy the project URL and anon/publishable key into `REACT_APP_SUPABASE_URL` and `REACT_APP_SUPABASE_ANON_KEY` in `.env`.
+3. Set the same URL and anon key as server variables `SUPABASE_URL` and `SUPABASE_ANON_KEY`. The server uses them only to validate signed-in users.
+4. Apply `supabase/migrations/202610110001_initial_saas.sql` in the Supabase SQL editor.
 
-### Step 1: Create Facebook App
+Without client Supabase settings, login is explicitly a local demo profile; it is not authentication. Prompt drafts and generated history stay in browser local storage. With Supabase configured and the migration applied, brand voice and prompt run history also sync to the signed-in user's account. Stripe billing and plan-based limits are not wired yet.
 
-1. Go to [Facebook Developers](https://developers.facebook.com/)
-2. Click "Create App"
-3. Choose "Consumer" as the app type
-4. Enter your app name and contact email
-5. Create the app
+## Environment variables
 
-### Step 2: Configure Facebook Login
+See `.env.example`. CRA only exposes variables prefixed with `REACT_APP_`; keep all provider secrets in unprefixed server variables.
 
-1. In your Facebook app dashboard, click "Add Product"
-2. Find "Facebook Login" and click "Set Up"
-3. Choose "Web" as your platform
-4. Enter your site URL: `http://localhost:3000` (for development)
-5. Save changes
+## Main areas
 
-### Step 3: Configure Valid OAuth Redirect URIs
-
-1. Go to Facebook Login > Settings
-2. Add these Valid OAuth Redirect URIs:
-   - `http://localhost:3000/`
-   - `http://localhost:3000` (without trailing slash)
-3. Save changes
-
-### Step 4: Get Your App ID
-
-1. Go to Settings > Basic
-2. Copy your App ID
-3. Replace the placeholder in `src/components/Login.js`:
-
-```javascript
-const FACEBOOK_APP_ID = 'YOUR_ACTUAL_APP_ID_HERE';
-```
-
-## 🎯 Usage
-
-### Demo Login
-You can use the demo login with any email and password to test the app without Facebook.
-
-### Facebook Login
-Click "Continue with Facebook" to login with your Facebook account (requires Facebook App ID setup).
-
-### Features Overview
-
-- **Dashboard**: View and create posts, interact with content
-- **Profile**: Edit your profile information, view your posts
-- **Navigation**: Use the top navigation bar to switch between pages
-
-## 📱 App Structure
-
-```
-src/
-├── components/
-│   ├── Dashboard.js    # Main feed and post creation
-│   ├── Login.js        # Authentication component
-│   ├── Navbar.js       # Navigation bar
-│   └── Profile.js      # User profile page
-├── App.js              # Main app component with routing
-├── App.css             # Custom styles
-└── index.js            # App entry point
-```
-
-## 🔮 Future Enhancements
-
-- **Backend Integration** - Connect to a real API
-- **Real-time Chat** - Add messaging functionality
-- **Push Notifications** - Notify users of new interactions
-- **Media Upload** - Support for photo/video uploads
-- **Friend System** - Add/remove friends functionality
-- **Search** - Search for users and posts
-- **Groups** - Create and join interest groups
-
-## 🚀 Deployment
-
-### Build for Production
-
-```bash
-npm run build
-```
-
-### Deploy to Netlify/Vercel
-
-1. Build the project
-2. Upload the `build` folder to your hosting service
-3. Update Facebook app settings with your production URL
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
-
-## 📄 License
-
-This project is open source and available under the [MIT License](LICENSE).
-
-## 🆘 Troubleshooting
-
-### Facebook Login Not Working
-- Ensure your App ID is correct
-- Check that your domain is added to Facebook app settings
-- Verify OAuth redirect URIs are configured
-- Make sure your Facebook app is not in development mode for production
-
-### Styling Issues
-- Clear browser cache
-- Ensure Bootstrap CSS is loading
-- Check for console errors
-
-### Build Errors
-- Delete `node_modules` and `package-lock.json`
-- Run `npm install` again
-- Check for React version compatibility
-
-## 📞 Support
-
-If you encounter any issues or have questions, please create an issue in the GitHub repository.
-
----
-
-Built with ❤️ using React and modern web technologies.
+- `src/data/promptTemplates.js`: 15 editable prompt workflows.
+- `src/components/PromptStudio.js`: search, category filters, prompt editor, generation, and local run history.
+- `server/index.mjs`: small Node HTTP API with provider routing, auth verification, rate limiting, payload validation, and health status.
+- `supabase/migrations/`: user-owned SaaS data schema and RLS policies.
+- Existing `/dashboard` feed and `/profile` remain as demo social-network screens; `/prompts` is the content workspace.
