@@ -1,6 +1,10 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js'
 
-const url = process.env.REACT_APP_SUPABASE_URL;
-const anonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL
+const supabaseKey = process.env.REACT_APP_SUPABASE_PUBLISHABLE_KEY // Hoặc REACT_APP_SUPABASE_ANON_KEY nếu file .env của bạn dùng tên đó
 
-export const supabase = url && anonKey ? createClient(url, anonKey) : null;
+if (!supabaseUrl || !supabaseKey) {
+  console.error("Thiếu biến môi trường Supabase! Hãy kiểm tra file .env");
+}
+
+export const supabase = createClient(supabaseUrl, supabaseKey)

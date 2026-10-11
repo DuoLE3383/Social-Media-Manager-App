@@ -30,7 +30,7 @@ export default function DataDeletion() {
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || 'Account deletion failed. Please try again.');
       await supabase.auth.signOut();
-      localStorage.removeItem('socialMediaUser');
+      ['socialMediaUser', 'socialMediaBrandVoice', 'socialMediaAiHistory', 'ss.modelTier'].forEach((key) => localStorage.removeItem(key));
       setDeleted(true);
     } catch (deleteError) { setError(deleteError.message); }
     finally { setBusy(false); }

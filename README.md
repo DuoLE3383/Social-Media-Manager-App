@@ -8,7 +8,7 @@ Requirements: Node.js 18+ (the API uses native `fetch`) and npm.
 
 1. Install dependencies: `npm install`
 2. Copy `.env.example` to `.env` and adjust values as needed.
-3. Start Ollama and pull the model configured in `LLM_MODEL` (default: `llama3.2`), or configure an OpenAI API key.
+3. Start Ollama and pull the models configured in `LLM_MODEL` (`qwen2.5:3b`), `LLM_MODEL_PREMIUM` (`qwen2.5:7b`), and `LLM_MODEL_EMBED` (`nomic-embed-text`), or configure a cloud provider.
 4. Start both frontend and API together: `npm run all`. The script picks an available frontend port from 3000–3099 and runs the API on `API_PORT` (8787 by default). Press Ctrl+C to stop both.
 
 You can also run the services separately with `npm start` and `npm run server` in two terminals.
@@ -21,7 +21,9 @@ The server selects one provider using environment variables. Provider credential
 
 **Ollama:** set `LLM_PROVIDER=ollama`, `OLLAMA_URL`, and `LLM_MODEL`. This works when the API process can reach that Ollama host. A hosted SaaS backend cannot reach Ollama on a customer's computer via its own `localhost`; supporting that requires a local companion/agent or a secure customer-managed tunnel. Do not expose Ollama's unauthenticated port directly to the public internet.
 
-**OpenAI-compatible API:** set `LLM_PROVIDER=openai`, `LLM_MODEL`, and `OPENAI_API_KEY`. Optionally set `OPENAI_BASE_URL` for a compatible endpoint. **Anthropic:** set `LLM_PROVIDER=anthropic`, `LLM_MODEL`, and `ANTHROPIC_API_KEY`. The current router selects one server-configured provider; per-user tier routing and provider failover are not implemented.
+Generation requests use tier-specific `LLM_TIMEOUT_DEFAULT` (90 seconds) and `LLM_TIMEOUT_PREMIUM` (300 seconds) limits, retry transient Ollama failures twice with backoff, check installed models before generation, and fall back from premium to the default model when `LLM_FALLBACK_ENABLED=true`. Ollama requests are serialized in a bounded process-wide queue (`OLLAMA_QUEUE_LIMIT=4` includes the active request); users can cancel active and queued requests from Prompt Studio. Embeddings use `LLM_TIMEOUT_EMBED` (30 seconds). All timeout values are milliseconds.
+
+**OpenAI-compatible API:** set `LLM_PROVIDER=openai`, `LLM_MODEL`, and `OPENAI_API_KEY`. Optionally set `OPENAI_BASE_URL` for a compatible endpoint. **Anthropic:** set `LLM_PROVIDER=anthropic`, `LLM_MODEL`, and `ANTHROPIC_API_KEY`. The current router selects one server-configured provider; billing enforcement and provider failover are not implemented.
 
 The API has a small in-memory per-user rate limit and payload limit. When server Supabase credentials are set, it verifies the Supabase bearer token before generation. Before internet-facing production use, add persistent quotas, distributed rate limiting, request timeouts/observability, billing enforcement, and a deployment-specific origin allowlist. Never expose the Supabase service-role key to the frontend.
 
@@ -38,9 +40,22 @@ This integration connects **Pages the signed-in person manages**. It does not pu
 
 Page access tokens are encrypted at rest with AES-256-GCM in Supabase and are only read by the server service role. The browser can list connected Page names and request actions, but never receives tokens. Page publishing is immediate and requires an explicit confirmation in the UI. Use HTTPS and a production callback URL when deployed; update both `META_REDIRECT_URI` and the Meta dashboard to match exactly. Facebook may require additional review or business verification depending on app access and Page roles.
 
+## Connect Threads
+
+Threads publishing uses the Threads API and the same Supabase project and token-encryption key as Facebook.
+
+1. In Meta for Developers, add the **Threads API** use case/product and configure the exact callback URI from `THREADS_REDIRECT_URI` (local default: `http://localhost:8787/api/threads/callback`).
+2. Grant `threads_basic` and `threads_content_publish`. Add your account as a tester while the Meta app is in development mode; request App Review for other users.
+3. Set `THREADS_APP_ID` and `THREADS_APP_SECRET`, or leave them empty to reuse `META_APP_ID` and `META_APP_SECRET`. Set `THREADS_REDIRECT_URI`; `THREADS_STATE_SECRET` is optional and defaults to the Threads app secret. Keep secrets and `SUPABASE_SERVICE_ROLE_KEY` server-side.
+4. Apply `supabase/migrations/202610120001_threads.sql` in Supabase SQL Editor. It creates encrypted connection and post tables, a private media bucket (up to 100 MB), and per-user Storage policies. If you change `SUPABASE_STORAGE_BUCKET`, edit the bucket ID in the migration to match before applying it.
+5. Restart the app, sign in with Supabase, open **Connections**, and connect Threads. You can publish text, a single image or MP4 video, or a carousel of 2–20 images/videos. Media is uploaded to private Supabase Storage and passed to Threads with a temporary signed HTTPS URL.
+
+The API refreshes stored Threads tokens before publishing when they are within seven days of expiry. The 30-day planner queues the supplied topics and publishes due items from the backend; keep the API process online for automatic publishing. Scheduled posts and their state persist in Supabase. Apply `202610130001_threads_scheduling.sql` before using the planner. Automatic image generation keeps prompt writing on local Ollama. It tries local ComfyUI first (install an SDXL checkpoint and set `COMFYUI_URL`/`COMFYUI_CHECKPOINT`), then falls back to the free community AI Horde; anonymous Horde requests need no account key but have the lowest queue priority and can take several minutes. You can optionally set `HORDE_API_KEY` from a free AI Horde account to improve queue priority. Generated image bytes are saved to the private Threads Storage bucket before publishing. This $0-only configuration intentionally does not call Pollinations or Hugging Face: Pollinations currently requires an API key and Hugging Face inference can bill users without included credits. ComfyUI's local API flow follows [ComfyUI's official API example](https://github.com/Comfy-Org/ComfyUI/blob/master/script_examples/websockets_api_example.py). Account deletion removes uploaded media from the configured Threads bucket and cascades connection and post rows. Meta must reach the OAuth callback and signed media URLs; use HTTPS callback URLs after deployment. The API creates a Threads media container and publishes it as a separate call, following [Meta's Threads API collection](https://www.postman.com/meta/threads/documentation/dht3nzz/threads-api).
+
 ### Data deletion and privacy
 
-- Public deletion instructions: `https://<your-deployed-domain>/privacy/data-deletion`.
+- Public policy pages included under `public/privacy/`: `/privacy/data-deletion.html`, `/privacy/privacy-policy.html`, and `/privacy/terms.html`. They are served as static pages by the frontend deployment.
+- Public interactive deletion page: `https://<your-deployed-domain>/privacy/data-deletion`.
 - Meta data-deletion callback: `https://<your-deployed-domain>/api/meta/data-deletion`. Configure this callback in the Meta app's data deletion settings. Requests are accepted only after validating Meta's signed request, and delete Page-token records associated with that Facebook app-scoped user ID.
 - Apply both SQL files in `supabase/migrations/` before enabling this callback. The second migration adds the Facebook user ID to Page-token records.
 - Signed-in users can permanently delete their Social Studio account from the public deletion page after typing `DELETE` and confirming. The API verifies their Supabase session and uses the server-only service role to delete the auth user; foreign-key cascades remove associated workspace rows.
@@ -48,7 +63,7 @@ Page access tokens are encrypted at rest with AES-256-GCM in Supabase and are on
 
 Meta must be able to reach the deletion instructions and callback over public HTTPS. Localhost URLs are for local preview only and cannot be submitted as production URLs.
 
-The app currently supports text posts to Facebook Pages. Images, scheduling, Instagram publishing, analytics, token rotation automation, and Meta webhook handling are not included.
+Facebook Page publishing currently supports text posts. Threads supports text, image, video, and carousel posts. Scheduling, Instagram publishing, analytics, and Meta webhook handling are not included.
 
 ## Supabase authentication and data
 

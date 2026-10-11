@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import ThreadsChannel from './ThreadsChannel';
 
 export default function Connections({ user }) {
   const [configured, setConfigured] = useState(false);
@@ -33,11 +34,16 @@ export default function Connections({ user }) {
     loadPages();
     const query = new URLSearchParams(window.location.search);
     const outcome = query.get('facebook');
+    const threadsOutcome = query.get('threads');
     if (outcome === 'connected') setNotice(`Facebook connected. ${query.get('count') || 'Your'} managed Page(s) are ready.`);
     else if (outcome === 'denied') setError('Facebook authorization was cancelled.');
     else if (outcome === 'error') setError('Facebook connection failed. Check the Meta app setup and try again.');
     else if (outcome === 'not_configured') setError('Add the Meta app credentials and token encryption key to the server environment first.');
-    if (outcome) { window.history.replaceState({}, '', '/settings'); }
+    if (threadsOutcome === 'connected') setNotice('Threads account connected.');
+    else if (threadsOutcome === 'denied') setError('Threads authorization was cancelled.');
+    else if (threadsOutcome === 'error') setError('Threads connection failed. Check the Meta app setup and try again.');
+    else if (threadsOutcome === 'not_configured') setError('Add the Threads API credentials and server configuration first.');
+    if (outcome || threadsOutcome) { window.history.replaceState({}, '', '/settings'); }
   }, [loadPages, request]);
 
   const connect = async () => {
@@ -85,6 +91,7 @@ export default function Connections({ user }) {
       {pages.map((page) => <article className="connected-page" key={page.id}><div className="connected-page-header"><div><span className="connected-dot" /><strong>{page.name}</strong><small>Page ID {page.id}</small></div><button className="btn btn-sm btn-outline-secondary" disabled={busy} onClick={() => disconnect(page)}>Disconnect</button></div><label className="form-label" htmlFor={`post-${page.id}`}>Post text</label><textarea id={`post-${page.id}`} className="form-control" rows="3" maxLength="5000" placeholder="Write a post for this Facebook Page…" value={messages[page.id] || ''} onChange={(event) => setMessages((current) => ({ ...current, [page.id]: event.target.value }))} /><div className="publish-controls"><small>{(messages[page.id] || '').length}/5000 · publishing is immediate</small><button className="btn btn-primary btn-sm" disabled={busy || !configured || !(messages[page.id] || '').trim()} onClick={() => publish(page)}>{busy ? 'Working…' : 'Publish to Page'}</button></div></article>)}
       {supabase && configured && pages.length === 0 && <div className="no-pages">No Facebook Pages connected yet. Connect Facebook to choose Pages managed by your account.</div>}
     </section>
+    <ThreadsChannel user={user} />
     <p className="connections-footnote">Signed in as {user?.email || user?.name || 'user'}. Page access tokens are encrypted by the server and are not returned to this browser.</p>
   </main>;
 }

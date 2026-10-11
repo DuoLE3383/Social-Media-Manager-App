@@ -8,20 +8,26 @@
     "@fortawesome/free-brands-svg-icons": "^6.7.2",
     "@fortawesome/free-solid-svg-icons": "^6.7.2",
     "@fortawesome/react-fontawesome": "^0.2.2",
-    "@supabase/supabase-js": "^2.45.0",
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.117.3",
     "@tanstack/react-query": "^5.59.0",
     "axios": "^1.9.0",
     "bootstrap": "^5.3.6",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "dotenv": "^16.4.7",
+    "lucide-react": "^1.55.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-scripts": "5.0.1",
     "react-hook-form": "^7.53.0",
     "react-hot-toast": "^2.4.1",
     "react-markdown": "^9.0.1",
     "react-router-dom": "^6.30.1",
+    "react-scripts": "5.0.1",
     "recharts": "^2.13.0",
+    "tailwind-merge": "^3.7.0",
+    "tailwindcss-animate": "^1.0.7",
     "web-vitals": "^2.1.4",
     "zod": "^3.23.8",
     "zustand": "^5.0.0"
@@ -29,6 +35,8 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
+    "tunnel": "cloudflared tunnel --url http://localhost:8787",
+    "dev:tunnel": "node scripts/dev.mjs --tunnel",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "all": "node scripts/dev.mjs",
@@ -36,11 +44,25 @@
     "dev:clean": "npm run kill-ports && npm run all"
   },
   "eslintConfig": {
-    "extends": ["react-app", "react-app/jest"]
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
   },
   "proxy": "http://localhost:8787",
   "browserslist": {
-    "production": [">0.2%", "not dead", "not op_mini all"],
-    "development": ["last 1 chrome version", "last 1 firefox version", "last 1 safari version"]
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6"
   }
 }

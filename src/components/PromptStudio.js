@@ -3,6 +3,7 @@ import { promptTemplates } from '../data/promptTemplates';
 import { supabase } from '../lib/supabase';
 import { getModelTier, setModelTier } from '../lib/modelTier';
 import ModelTierToggle from './ModelTierToggle';
+import { usePromptRunner } from '../hooks/usePromptRunner';
 
 const HISTORY_KEY = 'socialMediaAiHistory';
 const CATEGORIES = ['All', ...new Set(promptTemplates.map((item) => item.category))];
@@ -32,6 +33,7 @@ export default function PromptStudio({ user }) {
   const [notice, setNotice] = useState('');
   const [service, setService] = useState({ state: 'checking' });
   const voiceSaveTimer = useRef(null);
+  const runner = usePromptRunner();
 
   useEffect(() => {
     fetch('/api/health').then((response) => response.json().then((data) => ({ response, data })))
@@ -78,9 +80,7 @@ export default function PromptStudio({ user }) {
       const { data } = await supabase.auth.getSession();
       if (data.session?.access_token) headers.Authorization = `Bearer ${data.session.access_token}`;
     }
-    const response = await fetch('/api/prompts/run', { method: 'POST', headers, body: JSON.stringify({ prompt: requestPrompt, system, tier: selectedTier }) });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Generation failed.');
+    const data = await runner.run({ headers, body: { prompt: requestPrompt, system, tier: selectedTier } });
     return { ...data, durationMs: Math.round(performance.now() - startedAt) };
   };
 
@@ -103,7 +103,7 @@ export default function PromptStudio({ user }) {
       const quickPrompt = `${prompt.trim()}\n\nDraft immediately without asking follow-up questions. Fill unspecified bracketed details with sensible assumptions based on the available context. Keep assumptions conservative and briefly label any important assumption.`;
     const data = await generateText(quickPrompt, brandVoice ? `Brand voice and context: ${brandVoice}` : '', tier);
       setResult(await saveGeneratedDraft(data, quickPrompt));
-    } catch (error) { setNotice(error.message); }
+    } catch (error) { setNotice(error.code === 'CANCELLED' ? 'Generation cancelled. You can run it again whenever you are ready.' : error.message); }
     finally { setBusy(false); setRunningModel(''); }
   };
 
@@ -138,7 +138,7 @@ export default function PromptStudio({ user }) {
       const question = await askGuidedQuestion([], 1);
       if (!question) throw new Error('The AI did not return a question. Please try again.');
       setGuidedQuestion(question); setGuidedStep(1);
-    } catch (error) { setNotice(error.message); }
+    } catch (error) { setNotice(error.code === 'CANCELLED' ? 'Generation cancelled. You can run it again whenever you are ready.' : error.message); }
     finally { setBusy(false); }
   };
 
@@ -155,7 +155,7 @@ export default function PromptStudio({ user }) {
         if (!question) throw new Error('The AI did not return a follow-up question. Please try again.');
         setGuidedAnswers(nextAnswers); setGuidedAnswer(''); setGuidedQuestion(question); setGuidedStep(nextAnswers.length + 1);
       }
-    } catch (error) { setNotice(error.message); }
+    } catch (error) { setNotice(error.code === 'CANCELLED' ? 'Generation cancelled. You can run it again whenever you are ready.' : error.message); }
     finally { setBusy(false); }
   };
 
@@ -165,7 +165,7 @@ export default function PromptStudio({ user }) {
       ? [...guidedAnswers, { question: guidedQuestion, answer: guidedAnswer.trim() }]
       : guidedAnswers;
     try { await buildGuidedDraft(answers); }
-    catch (error) { setNotice(error.message); }
+    catch (error) { setNotice(error.code === 'CANCELLED' ? 'Generation cancelled. You can run it again whenever you are ready.' : error.message); }
     finally { setBusy(false); }
   };
 
@@ -215,8 +215,9 @@ export default function PromptStudio({ user }) {
           <textarea id="prompt-editor" className="form-control prompt-editor" value={prompt} onChange={(event) => setPrompt(event.target.value)} spellCheck="false" disabled={mode === 'guided' && guidedStep > 0 && guidedStep < 4} />
           <div className="prompt-studio-toolbar">
             <div className="tier-control"><ModelTierToggle value={tier} onChange={setTier} disabled={busy || service.state !== 'online'} defaultModel={service.model} premiumModel={service.premiumModel} />{tier === 'premium' && <p className="tier-hint">Higher quality model; generation can take longer on your computer.</p>}</div>
-            <div className="run-row"><span className="muted-small">{mode === 'quick' ? `${prompt.length.toLocaleString()} characters · AI fills missing details` : 'Guided mode asks up to 3 short questions · saved runs stay on this device'}</span>{mode === 'quick' && <button className="btn btn-primary run-button" onClick={runPrompt} disabled={busy || !prompt.trim() || service.state !== 'online'}>{busy ? <><span className="spinner-border spinner-border-sm me-2" />Generating {runningModel || 'draft'}…</> : 'Generate draft'}</button>}</div>
+            <div className="run-row"><span className="muted-small">{mode === 'quick' ? `${prompt.length.toLocaleString()} characters · AI fills missing details` : 'Guided mode asks up to 3 short questions · saved runs stay on this device'}</span>{mode === 'quick' && (busy ? <button className="btn btn-outline-danger run-button" onClick={runner.cancel} type="button"><span className="spinner-border spinner-border-sm me-2" />{runningModel || 'AI'} · {runner.elapsed}s · Cancel</button> : <button className="btn btn-primary run-button" onClick={runPrompt} disabled={!prompt.trim() || service.state !== 'online'}>Generate draft</button>)}</div>
           </div>
+          {busy && <div className="generation-progress" aria-live="polite"><div className="generation-progress__top"><span>{runner.status === 'preflight' ? 'Checking the model and preparing your request…' : `Still working with ${runningModel || 'the AI model'}…`}</span><strong>{runner.elapsed}s</strong></div><div className="generation-progress__track"><div className="generation-progress__fill" style={{ width: `${Math.min((runner.elapsed / (tier === 'premium' ? 300 : 90)) * 100, 95)}%` }} /></div><small>{runner.elapsed < 15 ? 'Warming up the model can take a moment.' : `Request is active · last UI heartbeat ${runner.lastHeartbeat ? new Date(runner.lastHeartbeat).toLocaleTimeString() : 'just now'}`}</small></div>}
           {mode === 'guided' && <section className="guided-panel" aria-live="polite">
             <div className="guided-panel-heading"><strong>{guidedStep > 0 && guidedStep < 4 ? `Question ${guidedStep} of 3` : guidedStep === 4 ? 'Guided draft complete' : 'A few details make the draft more specific'}</strong><span>{guidedStep === 4 ? 'Review the draft below.' : 'You can skip ahead whenever you have enough context.'}</span></div>
             {guidedStep === 0 && <button className="btn btn-primary" onClick={startGuided} disabled={busy || !prompt.trim() || service.state !== 'online'}>{busy ? <><span className="spinner-border spinner-border-sm me-2" />Preparing a question…</> : 'Start guided mode'}</button>}
@@ -225,13 +226,13 @@ export default function PromptStudio({ user }) {
               <p className="guided-question">{guidedQuestion}</p>
               <label className="form-label" htmlFor="guided-answer">Your answer</label>
               <textarea id="guided-answer" className="form-control" rows="2" value={guidedAnswer} onChange={(event) => setGuidedAnswer(event.target.value)} placeholder="Add the detail that matters for this draft." disabled={busy} />
-              <div className="guided-actions"><button className="btn btn-primary" type="submit" disabled={busy || !guidedAnswer.trim() || service.state !== 'online'}>{busy ? <><span className="spinner-border spinner-border-sm me-2" />{draftingGuided ? 'Writing draft…' : 'Thinking of the next question…'}</> : guidedStep === 3 ? 'Create my draft' : 'Answer and continue'}</button><button className="btn btn-outline-secondary" type="button" onClick={skipGuided} disabled={busy || service.state !== 'online'}>Skip and draft now</button></div>
+              <div className="guided-actions">{busy ? <button className="btn btn-outline-danger" type="button" onClick={runner.cancel}>Cancel · {runner.elapsed}s</button> : <><button className="btn btn-primary" type="submit" disabled={!guidedAnswer.trim() || service.state !== 'online'}>{guidedStep === 3 ? 'Create my draft' : 'Answer and continue'}</button><button className="btn btn-outline-secondary" type="button" onClick={skipGuided} disabled={service.state !== 'online'}>Skip and draft now</button></>}</div>
             </form>}
             {guidedStep === 4 && <button className="btn btn-outline-secondary" type="button" onClick={() => { setGuidedQuestion(''); setGuidedAnswer(''); setGuidedAnswers([]); setGuidedStep(0); setResult(''); setResultMeta(null); }}>Start guided mode again</button>}
             {busy && draftingGuided && <p className="guided-progress">Preparing your finished draft…</p>}
           </section>}
           {notice && <div className="alert alert-danger mt-3" role="alert">{notice}</div>}
-          {(result || (busy && (mode === 'quick' || draftingGuided))) && <section className="result-card"><div className="result-heading"><div><span className="eyebrow">AI OUTPUT</span><h3>{mode === 'guided' ? 'Guided draft' : 'Draft'}</h3></div>{result && <button className="btn btn-sm btn-outline-secondary" onClick={() => navigator.clipboard?.writeText(result).then(() => setNotice('Copied to clipboard.'))}>Copy</button>}</div>{resultMeta && <div className="output-meta"><span className="chip">{resultMeta.model || 'Model unavailable'}</span><span className="chip">{resultMeta.tier === 'premium' ? 'Chất lượng' : 'Nhanh'}</span>{Number.isFinite(resultMeta.durationMs) && <span className="chip">{(resultMeta.durationMs / 1000).toFixed(1)}s</span>}</div>}{busy && !result ? <div className="result-loading"><span className="spinner-border spinner-border-sm me-2" />{draftingGuided ? `Finishing with ${runningModel || 'AI'}…` : `Working with ${runningModel || 'AI'}…`}</div> : <pre className="result-text">{result}</pre>}</section>}
+          {(result || (busy && (mode === 'quick' || draftingGuided))) && <section className="result-card"><div className="result-heading"><div><span className="eyebrow">AI OUTPUT</span><h3>{mode === 'guided' ? 'Guided draft' : 'Draft'}</h3></div>{result && <button className="btn btn-sm btn-outline-secondary" onClick={() => navigator.clipboard?.writeText(result).then(() => setNotice('Copied to clipboard.'))}>Copy</button>}</div>{resultMeta && <div className="output-meta"><span className="chip">{resultMeta.model || 'Model unavailable'}</span><span className="chip">{resultMeta.tier === 'premium' ? 'Chất lượng' : 'Nhanh'}</span>{Number.isFinite(resultMeta.durationMs) && <span className="chip">{(resultMeta.durationMs / 1000).toFixed(1)}s</span>}{resultMeta.fallbackFrom && <span className="chip" title={resultMeta.fallbackReason}>Fallback from {resultMeta.fallbackFrom}</span>}</div>}{busy && !result ? <div className="result-loading"><span className="spinner-border spinner-border-sm me-2" />{draftingGuided ? `Finishing with ${runningModel || 'AI'}…` : `Working with ${runningModel || 'AI'}…`}</div> : <pre className="result-text">{result}</pre>}</section>}
         </section>
       </div>
       <footer className="studio-footer">Signed in as {user?.email || user?.name || 'demo user'} <span>·</span> {supabase ? 'Brand voice and prompt run history sync to your Supabase account.' : 'Draft history and brand context are stored in this browser.'}</footer>
