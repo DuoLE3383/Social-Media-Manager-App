@@ -38,6 +38,16 @@ This integration connects **Pages the signed-in person manages**. It does not pu
 
 Page access tokens are encrypted at rest with AES-256-GCM in Supabase and are only read by the server service role. The browser can list connected Page names and request actions, but never receives tokens. Page publishing is immediate and requires an explicit confirmation in the UI. Use HTTPS and a production callback URL when deployed; update both `META_REDIRECT_URI` and the Meta dashboard to match exactly. Facebook may require additional review or business verification depending on app access and Page roles.
 
+### Data deletion and privacy
+
+- Public deletion instructions: `https://<your-deployed-domain>/privacy/data-deletion`.
+- Meta data-deletion callback: `https://<your-deployed-domain>/api/meta/data-deletion`. Configure this callback in the Meta app's data deletion settings. Requests are accepted only after validating Meta's signed request, and delete Page-token records associated with that Facebook app-scoped user ID.
+- Apply both SQL files in `supabase/migrations/` before enabling this callback. The second migration adds the Facebook user ID to Page-token records.
+- Signed-in users can permanently delete their Social Studio account from the public deletion page after typing `DELETE` and confirming. The API verifies their Supabase session and uses the server-only service role to delete the auth user; foreign-key cascades remove associated workspace rows.
+- Upload `public/social-studio-meta-app-icon-1024.png` as the Meta app icon. `public/meta-app-icon.html` is also a browser export utility, and `public/social-studio-meta-app-icon.svg` is its vector source.
+
+Meta must be able to reach the deletion instructions and callback over public HTTPS. Localhost URLs are for local preview only and cannot be submitted as production URLs.
+
 The app currently supports text posts to Facebook Pages. Images, scheduling, Instagram publishing, analytics, token rotation automation, and Meta webhook handling are not included.
 
 ## Supabase authentication and data

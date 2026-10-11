@@ -9,10 +9,23 @@ import Navbar from './components/Navbar';
 import PromptStudio from './components/PromptStudio';
 import { supabase } from './lib/supabase';
 import Connections from './components/Connections';
+import DataDeletion from './components/DataDeletion';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faMoon, faSun } from '@fortawesome/free-solid-svg-icons';
 
 function App() {
   const [user, setUser] = useState(null);
+  const [theme, setTheme] = useState(() => {
+    const saved = localStorage.getItem('socialStudioTheme');
+    if (saved === 'light' || saved === 'dark') return saved;
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
   const isAuthenticated = Boolean(user);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem('socialStudioTheme', theme);
+  }, [theme]);
 
   useEffect(() => {
     if (supabase) {
@@ -49,9 +62,12 @@ function App() {
   return (
     <Router>
       <div className="App">
-        {isAuthenticated && <Navbar user={user} onLogout={handleLogout} />}
+        {isAuthenticated
+          ? <Navbar user={user} onLogout={handleLogout} theme={theme} onToggleTheme={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')} />
+          : <button className="theme-toggle floating-theme-toggle" type="button" onClick={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}><FontAwesomeIcon icon={theme === 'dark' ? faSun : faMoon} /></button>}
         <div className="container-fluid">
           <Routes>
+            <Route path="/privacy/data-deletion" element={<DataDeletion />} />
             <Route 
               path="/login" 
               element={

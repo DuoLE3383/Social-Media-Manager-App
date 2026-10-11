@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { promptTemplates } from '../data/promptTemplates';
 import { supabase } from '../lib/supabase';
+import { getModelTier, setModelTier } from '../lib/modelTier';
+import ModelTierToggle from './ModelTierToggle';
 
 const HISTORY_KEY = 'socialMediaAiHistory';
 const CATEGORIES = ['All', ...new Set(promptTemplates.map((item) => item.category))];
@@ -15,9 +17,18 @@ export default function PromptStudio({ user }) {
   const [query, setQuery] = useState('');
   const [prompt, setPrompt] = useState(promptTemplates[0].prompt);
   const [brandVoice, setBrandVoice] = useState(localStorage.getItem('socialMediaBrandVoice') || '');
+  const [mode, setMode] = useState('quick');
+  const [tier, setTier] = useState(getModelTier);
   const [result, setResult] = useState('');
+  const [resultMeta, setResultMeta] = useState(null);
+  const [guidedQuestion, setGuidedQuestion] = useState('');
+  const [guidedAnswer, setGuidedAnswer] = useState('');
+  const [guidedAnswers, setGuidedAnswers] = useState([]);
+  const [guidedStep, setGuidedStep] = useState(0);
+  const [draftingGuided, setDraftingGuided] = useState(false);
   const [history, setHistory] = useState(readHistory);
   const [busy, setBusy] = useState(false);
+  const [runningModel, setRunningModel] = useState('');
   const [notice, setNotice] = useState('');
   const [service, setService] = useState({ state: 'checking' });
   const voiceSaveTimer = useRef(null);
@@ -42,41 +53,124 @@ export default function PromptStudio({ user }) {
     return () => clearTimeout(voiceSaveTimer.current);
   }, [user?.id]);
 
+  useEffect(() => {
+    if (service.state === 'online' && !service.premiumModel && tier === 'premium') {
+      setTier('default');
+      setModelTier('default');
+    }
+  }, [service.state, service.premiumModel, tier]);
+
   const visibleTemplates = useMemo(() => promptTemplates.filter((item) =>
     (category === 'All' || item.category === category) && `${item.title} ${item.description}`.toLowerCase().includes(query.toLowerCase())), [category, query]);
 
   const chooseTemplate = (item) => {
     setSelectedId(item.id);
     setPrompt(item.prompt);
-    setResult('');
+    setResult(''); setResultMeta(null);
     setNotice('');
+    setGuidedQuestion(''); setGuidedAnswer(''); setGuidedAnswers([]); setGuidedStep(0);
+  };
+
+  const generateText = async (requestPrompt, system = '', selectedTier = tier) => {
+    const startedAt = performance.now();
+    const headers = { 'Content-Type': 'application/json' };
+    if (supabase) {
+      const { data } = await supabase.auth.getSession();
+      if (data.session?.access_token) headers.Authorization = `Bearer ${data.session.access_token}`;
+    }
+    const response = await fetch('/api/prompts/run', { method: 'POST', headers, body: JSON.stringify({ prompt: requestPrompt, system, tier: selectedTier }) });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Generation failed.');
+    return { ...data, durationMs: Math.round(performance.now() - startedAt) };
+  };
+
+  const saveGeneratedDraft = async (data, savedPrompt) => {
+    const text = data.text || '(The model returned an empty response.)';
+    const entry = { id: `${Date.now()}`, template: promptTemplates.find((item) => item.id === selectedId)?.title || 'Custom prompt', prompt: savedPrompt, text, provider: data.provider, model: data.model, tier: data.tier || tier, durationMs: data.durationMs, createdAt: data.createdAt || new Date().toISOString() };
+    const next = [entry, ...readHistory()].slice(0, 30);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(next)); setHistory(next); setResultMeta(entry);
+    if (supabase && user?.id) {
+      const { error: saveError } = await supabase.from('prompt_runs').insert({ user_id: user.id, provider: data.provider, model: data.model, prompt: savedPrompt, output: data.text || '' });
+      if (saveError) setNotice('Draft generated, but cloud history could not be saved. Apply the Supabase migration and check your connection.');
+    }
+    return text;
   };
 
   const runPrompt = async () => {
     if (!prompt.trim()) return;
+    setBusy(true); setNotice(''); setResult(''); setResultMeta(null); setRunningModel(tier === 'premium' ? service.premiumModel : service.model);
+    try {
+      const quickPrompt = `${prompt.trim()}\n\nDraft immediately without asking follow-up questions. Fill unspecified bracketed details with sensible assumptions based on the available context. Keep assumptions conservative and briefly label any important assumption.`;
+    const data = await generateText(quickPrompt, brandVoice ? `Brand voice and context: ${brandVoice}` : '', tier);
+      setResult(await saveGeneratedDraft(data, quickPrompt));
+    } catch (error) { setNotice(error.message); }
+    finally { setBusy(false); setRunningModel(''); }
+  };
+
+  const askGuidedQuestion = async (answers, questionNumber) => {
+    const knownAnswers = answers.length
+      ? answers.map((item, index) => `Q${index + 1}: ${item.question}\nA${index + 1}: ${item.answer}`).join('\n')
+      : 'No clarifications have been collected yet.';
+    const requestPrompt = `Draft task:\n${prompt}\n\nBrand context:\n${brandVoice || 'Not provided.'}\n\nClarifications already collected:\n${knownAnswers}\n\nAsk clarification ${questionNumber} of 3. Choose the single most useful unanswered detail (such as audience, platform, goal, offer, or constraints). Ask exactly one short question in the same language as the task. Do not repeat a question, add commentary, or draft the content yet.`;
+    const data = await generateText(requestPrompt, 'You are a concise content-planning interviewer. Return only one clear follow-up question.');
+    return data.text?.trim();
+  };
+
+  const buildGuidedDraft = async (answers) => {
+    const answerText = answers.length
+      ? answers.map((item, index) => `${index + 1}. ${item.question}\n   Answer: ${item.answer}`).join('\n')
+      : 'No extra answers. Use reasonable assumptions for missing details.';
+    const finalPrompt = `${prompt.trim()}\n\nThe user chose guided mode and provided these clarifications:\n${answerText}\n\nNow produce the finished requested draft. Do not ask any more questions. If a minor detail remains unknown, use a conservative assumption.`;
+    setDraftingGuided(true);
+    setRunningModel(tier === 'premium' ? service.premiumModel : service.model);
+    try {
+    const data = await generateText(finalPrompt, brandVoice ? `Brand voice and context: ${brandVoice}` : '', tier);
+      setResult(await saveGeneratedDraft(data, finalPrompt));
+      setGuidedQuestion('');
+      setGuidedStep(4);
+    } finally { setDraftingGuided(false); setRunningModel(''); }
+  };
+
+  const startGuided = async () => {
+    if (!prompt.trim()) return;
+    setBusy(true); setNotice(''); setResult(''); setResultMeta(null); setGuidedAnswers([]); setGuidedAnswer(''); setGuidedQuestion(''); setGuidedStep(0);
+    try {
+      const question = await askGuidedQuestion([], 1);
+      if (!question) throw new Error('The AI did not return a question. Please try again.');
+      setGuidedQuestion(question); setGuidedStep(1);
+    } catch (error) { setNotice(error.message); }
+    finally { setBusy(false); }
+  };
+
+  const continueGuided = async (event) => {
+    event.preventDefault();
+    if (!guidedAnswer.trim()) return;
+    const nextAnswers = [...guidedAnswers, { question: guidedQuestion, answer: guidedAnswer.trim() }];
     setBusy(true); setNotice(''); setResult('');
     try {
-      const headers = { 'Content-Type': 'application/json' };
-      if (supabase) {
-        const { data } = await supabase.auth.getSession();
-        if (data.session?.access_token) headers.Authorization = `Bearer ${data.session.access_token}`;
-      }
-      const response = await fetch('/api/prompts/run', {
-        method: 'POST', headers,
-        body: JSON.stringify({ prompt, system: brandVoice ? `Brand voice and context: ${brandVoice}` : '' })
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Generation failed.');
-      setResult(data.text || '(The model returned an empty response.)');
-      const entry = { id: `${Date.now()}`, template: promptTemplates.find((item) => item.id === selectedId)?.title || 'Custom prompt', prompt, text: data.text || '', provider: data.provider, model: data.model, createdAt: data.createdAt };
-      const next = [entry, ...readHistory()].slice(0, 30);
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(next)); setHistory(next);
-      if (supabase && user?.id) {
-        const { error: saveError } = await supabase.from('prompt_runs').insert({ user_id: user.id, provider: data.provider, model: data.model, prompt, output: data.text || '' });
-        if (saveError) setNotice('Draft generated, but cloud history could not be saved. Apply the Supabase migration and check your connection.');
+      if (nextAnswers.length >= 3) {
+        await buildGuidedDraft(nextAnswers);
+      } else {
+        const question = await askGuidedQuestion(nextAnswers, nextAnswers.length + 1);
+        if (!question) throw new Error('The AI did not return a follow-up question. Please try again.');
+        setGuidedAnswers(nextAnswers); setGuidedAnswer(''); setGuidedQuestion(question); setGuidedStep(nextAnswers.length + 1);
       }
     } catch (error) { setNotice(error.message); }
     finally { setBusy(false); }
+  };
+
+  const skipGuided = async () => {
+    setBusy(true); setNotice(''); setResult('');
+    const answers = guidedAnswer.trim() && guidedQuestion
+      ? [...guidedAnswers, { question: guidedQuestion, answer: guidedAnswer.trim() }]
+      : guidedAnswers;
+    try { await buildGuidedDraft(answers); }
+    catch (error) { setNotice(error.message); }
+    finally { setBusy(false); }
+  };
+
+  const selectMode = (nextMode) => {
+    setMode(nextMode); setResult(''); setResultMeta(null); setNotice(''); setGuidedQuestion(''); setGuidedAnswer(''); setGuidedAnswers([]); setGuidedStep(0);
   };
 
   const saveVoice = (value) => {
@@ -105,18 +199,39 @@ export default function PromptStudio({ user }) {
           <input className="form-control studio-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search workflows" aria-label="Search workflows" />
           <div className="category-scroll">{CATEGORIES.map((item) => <button key={item} className={`category-chip ${category === item ? 'active' : ''}`} onClick={() => setCategory(item)}>{item}</button>)}</div>
           <div className="template-list">{visibleTemplates.map((item) => <button key={item.id} className={`template-item ${selectedId === item.id ? 'selected' : ''}`} onClick={() => chooseTemplate(item)}><span className="template-category">{item.category}</span><strong>{item.title}</strong><small>{item.description}</small></button>)}{!visibleTemplates.length && <p className="empty-state">No workflows match that search.</p>}</div>
-          <div className="history-panel"><div className="panel-heading"><h3>Recent runs</h3><span>{history.length}</span></div>{history.slice(0, 4).map((item) => <button key={item.id} className="history-item" onClick={() => setResult(item.text)}><span>{item.template}</span><small>{new Date(item.createdAt).toLocaleString()}</small></button>)}{history.length === 0 && <p className="muted-small">Your generated drafts will appear here.</p>}</div>
+          <div className="history-panel"><div className="panel-heading"><h3>Recent runs</h3><span>{history.length}</span></div>{history.slice(0, 4).map((item) => <button key={item.id} className="history-item" onClick={() => { setResult(item.text); setResultMeta(item); }}><span>{item.template}</span><small>{new Date(item.createdAt).toLocaleString()}</small></button>)}{history.length === 0 && <p className="muted-small">Your generated drafts will appear here.</p>}</div>
         </aside>
 
         <section className="workbench">
           <div className="workbench-top"><div><span className="eyebrow">{promptTemplates.find((item) => item.id === selectedId)?.category || 'CUSTOM'}</span><h2>{promptTemplates.find((item) => item.id === selectedId)?.title || 'Prompt'}</h2><p>{promptTemplates.find((item) => item.id === selectedId)?.description || 'Edit your prompt and generate a draft.'}</p></div><span className="draft-label">DRAFT</span></div>
+          <fieldset className="mode-selector" disabled={busy}>
+            <legend>Choose how to draft</legend>
+            <label className={`mode-option ${mode === 'quick' ? 'active' : ''}`}><input type="radio" name="draft-mode" value="quick" checked={mode === 'quick'} onChange={() => selectMode('quick')} /><span><strong>Quick draft</strong><small>AI tự giả định, ra draft ngay</small></span></label>
+            <label className={`mode-option ${mode === 'guided' ? 'active' : ''}`}><input type="radio" name="draft-mode" value="guided" checked={mode === 'guided'} onChange={() => selectMode('guided')} /><span><strong>Guided mode</strong><small>AI hỏi từng bước, chính xác hơn</small></span></label>
+          </fieldset>
           <label className="form-label" htmlFor="brand-voice">Brand voice & context <span>saved in this browser</span></label>
           <textarea id="brand-voice" className="form-control context-input" rows="2" value={brandVoice} onChange={(event) => saveVoice(event.target.value)} placeholder="e.g. Friendly, practical, no hype. We help independent cafes plan social content." />
           <label className="form-label prompt-label" htmlFor="prompt-editor">Prompt <span>Fill in [bracketed] details before running</span></label>
-          <textarea id="prompt-editor" className="form-control prompt-editor" value={prompt} onChange={(event) => setPrompt(event.target.value)} spellCheck="false" />
-          <div className="run-row"><span className="muted-small">{prompt.length.toLocaleString()} characters · saved runs stay on this device</span><button className="btn btn-primary run-button" onClick={runPrompt} disabled={busy || !prompt.trim() || service.state !== 'online'}>{busy ? <><span className="spinner-border spinner-border-sm me-2" />Generating…</> : 'Generate draft'}</button></div>
+          <textarea id="prompt-editor" className="form-control prompt-editor" value={prompt} onChange={(event) => setPrompt(event.target.value)} spellCheck="false" disabled={mode === 'guided' && guidedStep > 0 && guidedStep < 4} />
+          <div className="prompt-studio-toolbar">
+            <div className="tier-control"><ModelTierToggle value={tier} onChange={setTier} disabled={busy || service.state !== 'online'} defaultModel={service.model} premiumModel={service.premiumModel} />{tier === 'premium' && <p className="tier-hint">Higher quality model; generation can take longer on your computer.</p>}</div>
+            <div className="run-row"><span className="muted-small">{mode === 'quick' ? `${prompt.length.toLocaleString()} characters · AI fills missing details` : 'Guided mode asks up to 3 short questions · saved runs stay on this device'}</span>{mode === 'quick' && <button className="btn btn-primary run-button" onClick={runPrompt} disabled={busy || !prompt.trim() || service.state !== 'online'}>{busy ? <><span className="spinner-border spinner-border-sm me-2" />Generating {runningModel || 'draft'}…</> : 'Generate draft'}</button>}</div>
+          </div>
+          {mode === 'guided' && <section className="guided-panel" aria-live="polite">
+            <div className="guided-panel-heading"><strong>{guidedStep > 0 && guidedStep < 4 ? `Question ${guidedStep} of 3` : guidedStep === 4 ? 'Guided draft complete' : 'A few details make the draft more specific'}</strong><span>{guidedStep === 4 ? 'Review the draft below.' : 'You can skip ahead whenever you have enough context.'}</span></div>
+            {guidedStep === 0 && <button className="btn btn-primary" onClick={startGuided} disabled={busy || !prompt.trim() || service.state !== 'online'}>{busy ? <><span className="spinner-border spinner-border-sm me-2" />Preparing a question…</> : 'Start guided mode'}</button>}
+            {guidedAnswers.map((item, index) => <div className="guided-answer-history" key={`${index}-${item.question}`}><strong>Q{index + 1}: {item.question}</strong><span>{item.answer}</span></div>)}
+            {guidedQuestion && <form onSubmit={continueGuided}>
+              <p className="guided-question">{guidedQuestion}</p>
+              <label className="form-label" htmlFor="guided-answer">Your answer</label>
+              <textarea id="guided-answer" className="form-control" rows="2" value={guidedAnswer} onChange={(event) => setGuidedAnswer(event.target.value)} placeholder="Add the detail that matters for this draft." disabled={busy} />
+              <div className="guided-actions"><button className="btn btn-primary" type="submit" disabled={busy || !guidedAnswer.trim() || service.state !== 'online'}>{busy ? <><span className="spinner-border spinner-border-sm me-2" />{draftingGuided ? 'Writing draft…' : 'Thinking of the next question…'}</> : guidedStep === 3 ? 'Create my draft' : 'Answer and continue'}</button><button className="btn btn-outline-secondary" type="button" onClick={skipGuided} disabled={busy || service.state !== 'online'}>Skip and draft now</button></div>
+            </form>}
+            {guidedStep === 4 && <button className="btn btn-outline-secondary" type="button" onClick={() => { setGuidedQuestion(''); setGuidedAnswer(''); setGuidedAnswers([]); setGuidedStep(0); setResult(''); setResultMeta(null); }}>Start guided mode again</button>}
+            {busy && draftingGuided && <p className="guided-progress">Preparing your finished draft…</p>}
+          </section>}
           {notice && <div className="alert alert-danger mt-3" role="alert">{notice}</div>}
-          {(result || busy) && <section className="result-card"><div className="result-heading"><div><span className="eyebrow">AI OUTPUT</span><h3>Draft</h3></div>{result && <button className="btn btn-sm btn-outline-secondary" onClick={() => navigator.clipboard?.writeText(result).then(() => setNotice('Copied to clipboard.'))}>Copy</button>}</div>{busy ? <div className="result-loading"><span className="spinner-border spinner-border-sm me-2" />Working on your draft…</div> : <pre className="result-text">{result}</pre>}</section>}
+          {(result || (busy && (mode === 'quick' || draftingGuided))) && <section className="result-card"><div className="result-heading"><div><span className="eyebrow">AI OUTPUT</span><h3>{mode === 'guided' ? 'Guided draft' : 'Draft'}</h3></div>{result && <button className="btn btn-sm btn-outline-secondary" onClick={() => navigator.clipboard?.writeText(result).then(() => setNotice('Copied to clipboard.'))}>Copy</button>}</div>{resultMeta && <div className="output-meta"><span className="chip">{resultMeta.model || 'Model unavailable'}</span><span className="chip">{resultMeta.tier === 'premium' ? 'Chất lượng' : 'Nhanh'}</span>{Number.isFinite(resultMeta.durationMs) && <span className="chip">{(resultMeta.durationMs / 1000).toFixed(1)}s</span>}</div>}{busy && !result ? <div className="result-loading"><span className="spinner-border spinner-border-sm me-2" />{draftingGuided ? `Finishing with ${runningModel || 'AI'}…` : `Working with ${runningModel || 'AI'}…`}</div> : <pre className="result-text">{result}</pre>}</section>}
         </section>
       </div>
       <footer className="studio-footer">Signed in as {user?.email || user?.name || 'demo user'} <span>·</span> {supabase ? 'Brand voice and prompt run history sync to your Supabase account.' : 'Draft history and brand context are stored in this browser.'}</footer>

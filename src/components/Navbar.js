@@ -1,9 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faHome, faUser, faSignOutAlt, faWandMagicSparkles, faPlug } from '@fortawesome/free-solid-svg-icons';
+import { faHome, faUser, faSignOutAlt, faWandMagicSparkles, faPlug, faMoon, faSun } from '@fortawesome/free-solid-svg-icons';
 
-const Navbar = ({ user, onLogout }) => {
+const Navbar = ({ user, onLogout, theme, onToggleTheme }) => {
   return (
     <nav className="navbar navbar-expand-lg navbar-dark bg-primary sticky-top">
       <div className="container">
@@ -38,7 +38,11 @@ const Navbar = ({ user, onLogout }) => {
             </li>
           </ul>
           
-          <div className="d-flex align-items-center">
+          <div className="d-flex align-items-center gap-2">
+            <button className="theme-toggle" type="button" onClick={onToggleTheme} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>
+              <FontAwesomeIcon icon={theme === 'dark' ? faSun : faMoon} />
+              <span className="visually-hidden">Switch to {theme === 'dark' ? 'light' : 'dark'} mode</span>
+            </button>
             <div className="dropdown">
               <button 
                 className="btn btn-outline-light dropdown-toggle d-flex align-items-center" 
