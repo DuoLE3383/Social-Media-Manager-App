@@ -13,6 +13,7 @@
     "axios": "^1.9.0",
     "bootstrap": "^5.3.6",
     "date-fns": "^4.1.0",
+    "dotenv": "^16.4.7",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-scripts": "5.0.1",
@@ -26,7 +27,8 @@
     "zustand": "^5.0.0"
   },
   "scripts": {
-    "start": "react-scripts start",
+    "start": "node scripts/start-frontend.mjs",
+    "all": "node scripts/dev.mjs",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",

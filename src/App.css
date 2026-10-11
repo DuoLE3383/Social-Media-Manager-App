@@ -71,9 +71,35 @@ body {
 .studio-footer span { padding: 0 7px; }
 .login-container { min-height: calc(100vh - 58px); background: radial-gradient(ellipse at top left, #ecebff, #f7f7fa 60%); display: flex; align-items: center; padding: 28px 20px; }
 .login-mark { font-size: 2rem; color: #6158d9; }
+.connections-shell { max-width: 1120px; margin: 0 auto; padding: 44px clamp(18px, 4vw, 56px); color: #25243a; }
+.connections-heading { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; margin-bottom: 26px; }
+.connections-heading h1 { font-weight: 750; letter-spacing: -.045em; margin: 7px 0 5px; }
+.connections-heading p, .connection-card-heading p { color: #77768a; margin: 0; }
+.connection-card { background: #fff; border: 1px solid #e9e8ef; border-radius: 15px; box-shadow: 0 8px 28px #302d5010; padding: clamp(18px, 3vw, 30px); }
+.connection-card-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.connection-card-heading > div { display: flex; align-items: center; gap: 13px; }
+.connection-card-heading h2 { margin: 0 0 4px; font-size: 1.12rem; font-weight: 700; }
+.connection-card-heading p { font-size: .84rem; }
+.connection-card .btn:disabled { background: #b9b7c7; border-color: #b9b7c7; color: #fff; cursor: not-allowed; opacity: .72; transform: none; }
+.connect-facebook-help { margin: 8px 0 0; color: #77768a; font-size: .78rem; text-align: right; }
+.facebook-mark { display: grid; place-items: center; width: 43px; height: 43px; border-radius: 12px; background: #edf3ff; color: #1877f2; font-size: 2rem; line-height: 1; font-weight: 800; font-family: Arial, sans-serif; }
+.connection-requirements { display: flex; flex-direction: column; gap: 3px; padding: 13px 15px; margin: 22px 0 17px; border: 1px solid #f0dfb1; border-radius: 9px; color: #735d2a; background: #fffaf0; font-size: .8rem; }
+.connection-requirements strong { font-size: .82rem; }
+.connected-page { border-top: 1px solid #efedf3; padding: 19px 0 4px; margin-top: 18px; }
+.connected-page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; }
+.connected-page-header > div { display: grid; grid-template-columns: 10px auto; align-items: center; column-gap: 8px; }
+.connected-page-header strong { font-size: .93rem; }
+.connected-page-header small { grid-column: 2; color: #9291a0; font-size: .72rem; }
+.connected-dot { width: 8px; height: 8px; background: #30a779; border-radius: 50%; }
+.connected-page textarea { font-size: .86rem; resize: vertical; }
+.publish-controls { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 10px; }
+.publish-controls small { color: #9291a0; }
+.no-pages { padding: 18px 0 4px; color: #858496; font-size: .86rem; }
+.connections-footnote { color: #9291a0; font-size: .75rem; padding: 14px 2px; }
 
 @media (max-width: 900px) { .studio-layout { grid-template-columns: 1fr; } .template-list { max-height: 310px; } }
 @media (max-width: 600px) { .studio-shell { padding-top: 28px; } .studio-header { align-items: flex-start; flex-direction: column; } .service-pill { white-space: normal; } .run-row { align-items: stretch; flex-direction: column; } .run-button { width: 100%; } .history-item { flex-direction: column; gap: 2px; } }
+@media (max-width: 600px) { .connections-shell { padding-top: 28px; } .connections-heading { align-items: flex-start; flex-direction: column; } .connection-card-heading { align-items: flex-start; flex-direction: column; } .connection-card-heading > button { width: 100%; } }
 
 .App {
   min-width: auto;

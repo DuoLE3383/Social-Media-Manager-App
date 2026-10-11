@@ -9,8 +9,9 @@ Requirements: Node.js 18+ (the API uses native `fetch`) and npm.
 1. Install dependencies: `npm install`
 2. Copy `.env.example` to `.env` and adjust values as needed.
 3. Start Ollama and pull the model configured in `LLM_MODEL` (default: `llama3.2`), or configure an OpenAI API key.
-4. Start the API: `npm run server`
-5. In another terminal start the React app: `npm start`
+4. Start both frontend and API together: `npm run all`. The script picks an available frontend port from 3000–3099 and runs the API on `API_PORT` (8787 by default). Press Ctrl+C to stop both.
+
+You can also run the services separately with `npm start` and `npm run server` in two terminals.
 
 The React development server proxies `/api` to `http://localhost:8787`. The default Ollama URL is `http://127.0.0.1:11434`. The API binds to loopback by default.
 
@@ -23,6 +24,21 @@ The server selects one provider using environment variables. Provider credential
 **OpenAI-compatible API:** set `LLM_PROVIDER=openai`, `LLM_MODEL`, and `OPENAI_API_KEY`. Optionally set `OPENAI_BASE_URL` for a compatible endpoint. **Anthropic:** set `LLM_PROVIDER=anthropic`, `LLM_MODEL`, and `ANTHROPIC_API_KEY`. The current router selects one server-configured provider; per-user tier routing and provider failover are not implemented.
 
 The API has a small in-memory per-user rate limit and payload limit. When server Supabase credentials are set, it verifies the Supabase bearer token before generation. Before internet-facing production use, add persistent quotas, distributed rate limiting, request timeouts/observability, billing enforcement, and a deployment-specific origin allowlist. Never expose the Supabase service-role key to the frontend.
+
+## Connect Facebook Pages
+
+This integration connects **Pages the signed-in person manages**. It does not publish to personal profiles.
+
+1. Create a Meta app at [Meta for Developers](https://developers.facebook.com/apps/) and add Facebook Login for the Web.
+2. Add the exact OAuth callback URI from `META_REDIRECT_URI` (local default: `http://localhost:8787/api/meta/callback`) to the Facebook Login Valid OAuth Redirect URIs. Set the app domain and allowed web origin for the frontend.
+3. Put `META_APP_ID`, `META_APP_SECRET`, and the callback URI in the server `.env`. Never expose the app secret in a `REACT_APP_*` variable.
+4. Generate a random 32-byte base64 `META_TOKEN_ENCRYPTION_KEY`. Set `SUPABASE_SERVICE_ROLE_KEY` on the server only. Apply the Supabase migration so its private `meta_page_connections` table exists.
+5. For public users, set the Meta app live and request review/advanced access for `pages_show_list`, `pages_read_engagement`, and `pages_manage_posts`. App roles/testers can test in development mode subject to Meta's current app rules.
+6. Restart the API, sign into the app with Supabase, then open **Connections → Connect Facebook**. The user grants access through Facebook and chooses which managed Pages are saved.
+
+Page access tokens are encrypted at rest with AES-256-GCM in Supabase and are only read by the server service role. The browser can list connected Page names and request actions, but never receives tokens. Page publishing is immediate and requires an explicit confirmation in the UI. Use HTTPS and a production callback URL when deployed; update both `META_REDIRECT_URI` and the Meta dashboard to match exactly. Facebook may require additional review or business verification depending on app access and Page roles.
+
+The app currently supports text posts to Facebook Pages. Images, scheduling, Instagram publishing, analytics, token rotation automation, and Meta webhook handling are not included.
 
 ## Supabase authentication and data
 

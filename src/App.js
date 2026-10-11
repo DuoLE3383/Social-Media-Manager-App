@@ -8,6 +8,7 @@ import Profile from './components/Profile';
 import Navbar from './components/Navbar';
 import PromptStudio from './components/PromptStudio';
 import { supabase } from './lib/supabase';
+import Connections from './components/Connections';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -68,6 +69,7 @@ function App() {
               } 
             />
             <Route path="/prompts" element={isAuthenticated ? <PromptStudio user={user} /> : <Navigate to="/login" />} />
+            <Route path="/settings" element={isAuthenticated ? <Connections user={user} /> : <Navigate to="/login" />} />
             <Route 
               path="/profile" 
               element={

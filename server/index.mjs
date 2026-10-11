@@ -1,7 +1,8 @@
+import 'dotenv/config';
 import http from 'node:http';
 import { createCipheriv, createDecipheriv, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
-const PORT = Number(process.env.PORT || 8787);
+const PORT = Number(process.env.API_PORT || process.env.PORT || 8787);
 const HOST = process.env.HOST || '127.0.0.1';
 const PROVIDER = (process.env.LLM_PROVIDER || 'ollama').toLowerCase();
 const OLLAMA_URL = (process.env.OLLAMA_URL || 'http://127.0.0.1:11434').replace(/\/$/, '');
@@ -63,7 +64,11 @@ async function authenticatedUser(req) {
 }
 
 function metaConfigured() {
-  return Boolean(META_APP_ID && META_APP_SECRET && META_REDIRECT_URI && META_STATE_SECRET && SUPABASE_SERVICE_ROLE_KEY && process.env.META_TOKEN_ENCRYPTION_KEY);
+  return Boolean(META_APP_ID && META_APP_SECRET && META_REDIRECT_URI && META_STATE_SECRET && SUPABASE_SERVICE_ROLE_KEY && encryptionKeyIsValid());
+}
+
+function encryptionKeyIsValid() {
+  return Buffer.from(process.env.META_TOKEN_ENCRYPTION_KEY || '', 'base64').length === 32;
 }
 
 function metaError(message, status = 500) {
@@ -231,7 +236,16 @@ const server = http.createServer(async (req, res) => {
     return;
   }
   if (req.method === 'GET' && url.pathname === '/api/meta/status') {
-    send(res, 200, { configured: Boolean(authConfigured && metaConfigured()), graphVersion: META_GRAPH_VERSION });
+    const missing = [
+      ...(!SUPABASE_URL ? ['SUPABASE_URL'] : []),
+      ...(!SUPABASE_ANON_KEY ? ['SUPABASE_ANON_KEY'] : []),
+      ...(!SUPABASE_SERVICE_ROLE_KEY ? ['SUPABASE_SERVICE_ROLE_KEY'] : []),
+      ...(!META_APP_ID ? ['META_APP_ID'] : []),
+      ...(!META_APP_SECRET ? ['META_APP_SECRET'] : []),
+      ...(!META_REDIRECT_URI ? ['META_REDIRECT_URI'] : []),
+      ...(!encryptionKeyIsValid() ? ['META_TOKEN_ENCRYPTION_KEY (base64-encoded 32-byte key)'] : [])
+    ];
+    send(res, 200, { configured: Boolean(authConfigured && metaConfigured()), missing, graphVersion: META_GRAPH_VERSION });
     return;
   }
   if (url.pathname.startsWith('/api/meta/') && url.pathname !== '/api/meta/callback' && url.pathname !== '/api/meta/connect' && url.pathname !== '/api/meta/status') {
