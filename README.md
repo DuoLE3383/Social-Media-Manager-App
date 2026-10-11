@@ -15,6 +15,14 @@ You can also run the services separately with `npm start` and `npm run server` i
 
 The React development server proxies `/api` to `http://localhost:8787`. The default Ollama URL is `http://127.0.0.1:11434`. The API binds to loopback by default.
 
+## Deploy the frontend to Cloudflare Pages
+
+`wrangler.toml` configures the Pages project and CRA output directory (`build`). Set its `name` to the exact Pages project name in your Cloudflare account. Then run `npx wrangler login` once and deploy with `npm run deploy:cloudflare`. Wrangler uploads the built static frontend; it does not deploy the Node API in `server/`.
+
+The deployment command builds on your machine, so put `REACT_APP_SUPABASE_URL` and either `REACT_APP_SUPABASE_ANON_KEY` or `REACT_APP_SUPABASE_PUBLISHABLE_KEY` in your local ignored `.env` before deploying. These frontend keys are public; never put `SUPABASE_SERVICE_ROLE_KEY`, `META_APP_SECRET`, or other server secrets in a `REACT_APP_*` variable or commit `.env`.
+
+The API must be deployed separately to a reachable HTTPS server and the frontend configured to call it. The `package.json` development proxy only works in local development, so uploading the static build alone does not make Facebook or Threads API routes available on Pages. For a Git-integrated Pages project, Cloudflare can build and deploy on each push instead; configure the same public Supabase variables under that project's Settings > Environment variables for both Production and Preview builds.
+
 ## AI providers
 
 The server selects one provider using environment variables. Provider credentials stay on the server and are never sent to the browser.

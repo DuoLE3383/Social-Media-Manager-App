@@ -81,7 +81,7 @@ export default function Connections({ user }) {
 
   return <main className="connections-shell">
     <header className="connections-heading"><div><span className="eyebrow">PUBLISHING CHANNELS</span><h1>Connections</h1><p>Connect a Facebook Page you manage and publish posts from this workspace.</p></div><span className={`service-pill ${configured ? 'online' : 'offline'}`}><span className="status-dot" />{configured ? 'Meta API configured' : 'Meta API needs setup'}</span></header>
-    {!supabase && <div className="studio-alert">Facebook connections require Supabase authentication. This session is using demo sign-in. Configure <code>REACT_APP_SUPABASE_URL</code> and <code>REACT_APP_SUPABASE_ANON_KEY</code> in <code>.env</code>, then restart the frontend.</div>}
+    {!supabase && <div className="studio-alert">Facebook connections require Supabase authentication. This session is using demo sign-in. For local development, configure <code>REACT_APP_SUPABASE_URL</code> and <code>REACT_APP_SUPABASE_ANON_KEY</code> (or <code>REACT_APP_SUPABASE_PUBLISHABLE_KEY</code>) in <code>.env</code> and restart the frontend. For Cloudflare Pages, add these as build environment variables and redeploy.</div>}
     {!configured && <div className="studio-alert">Meta API setup is incomplete. Missing server configuration: <strong>{missingServerConfig.length ? missingServerConfig.join(', ') : 'API status unavailable'}</strong>. Add these to <code>.env</code> and restart the backend. Never share the service-role key or Meta app secret.</div>}
     {notice && <div className="alert alert-success" role="status">{notice}</div>}
     {error && <div className="alert alert-danger" role="alert">{error}</div>}
