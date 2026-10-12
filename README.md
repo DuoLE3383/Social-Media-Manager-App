@@ -15,13 +15,13 @@ You can also run the services separately with `npm start` and `npm run server` i
 
 The React development server proxies `/api` to `http://localhost:8787`. The default Ollama URL is `http://127.0.0.1:11434`. The API binds to loopback by default.
 
-## Deploy the frontend to Cloudflare Pages
+## Deploy the frontend to a Cloudflare Worker
 
-`wrangler.toml` configures the Pages project and CRA output directory (`build`). Set its `name` to the exact Pages project name in your Cloudflare account. Then run `npx wrangler login` once and deploy with `npm run deploy:cloudflare`. Wrangler uploads the built static frontend; it does not deploy the Node API in `server/`.
+`wrangler.toml` configures the Worker and CRA output directory (`build`). Set its `name` to the exact Worker name in your Cloudflare account. Then run `npx wrangler login` once and deploy with `npm run deploy:cloudflare`. Wrangler uploads the built static frontend; it does not deploy the Node API in `server/`.
 
 The deployment command builds on your machine, so put `REACT_APP_SUPABASE_URL` and either `REACT_APP_SUPABASE_ANON_KEY` or `REACT_APP_SUPABASE_PUBLISHABLE_KEY` in your local ignored `.env` before deploying. These frontend keys are public; never put `SUPABASE_SERVICE_ROLE_KEY`, `META_APP_SECRET`, or other server secrets in a `REACT_APP_*` variable or commit `.env`.
 
-The API must be deployed separately to a reachable HTTPS server and the frontend configured to call it. The `package.json` development proxy only works in local development, so uploading the static build alone does not make Facebook or Threads API routes available on Pages. For a Git-integrated Pages project, Cloudflare can build and deploy on each push instead; configure the same public Supabase variables under that project's Settings > Environment variables for both Production and Preview builds.
+The API must be deployed separately to a reachable HTTPS server and the frontend configured to call it. The `package.json` development proxy only works in local development, so uploading the static build alone does not make API routes available on this Worker. For a temporary local Ollama setup, run `npm run server`, start `npm run tunnel` in another terminal, set `REACT_APP_API_BASE_URL` in `.env` to the printed HTTPS tunnel URL, and redeploy. Add the Worker origin to server-side `CORS_ORIGINS` (a comma-separated list); keep the API and tunnel running while you use the deployed site. A random Quick Tunnel URL changes on restart, so rebuild/redeploy the frontend with the new URL each time. Cloudflare Worker runtime variables are not injected into CRA's browser bundle; provide the public Supabase and API base URL variables when running the build command.
 
 ## AI providers
 

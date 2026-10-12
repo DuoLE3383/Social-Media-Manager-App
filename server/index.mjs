@@ -16,6 +16,7 @@ const LLM_TIMEOUT_PREMIUM = positiveInt(process.env.LLM_TIMEOUT_PREMIUM, 300_000
 const LLM_TIMEOUT_EMBED = positiveInt(process.env.LLM_TIMEOUT_EMBED, 30_000);
 const LLM_FALLBACK_ENABLED = process.env.LLM_FALLBACK_ENABLED !== 'false';
 const ORIGIN = process.env.APP_ORIGIN || 'http://localhost:3000';
+const ALLOWED_ORIGINS = new Set([ORIGIN, ...(process.env.CORS_ORIGINS || '').split(',')].map((origin) => origin.trim()).filter(Boolean));
 const WINDOW_MS = 60_000;
 const RATE_LIMIT = Number(process.env.RATE_LIMIT_PER_MINUTE || 20);
 const requests = new Map();
@@ -794,8 +795,8 @@ async function generate(prompt, system, tier = 'default', signal) {
 
 const server = http.createServer(async (req, res) => {
   const origin = req.headers.origin;
-  if (origin === ORIGIN) {
-    res.setHeader('Access-Control-Allow-Origin', ORIGIN);
+  if (origin && ALLOWED_ORIGINS.has(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
   }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');

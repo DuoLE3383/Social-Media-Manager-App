@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { apiUrl } from '../lib/api';
 
 export default function DataDeletion() {
   const [confirmation, setConfirmation] = useState('');
@@ -26,7 +27,7 @@ export default function DataDeletion() {
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token;
       if (!token) throw new Error('Sign in again before deleting your account.');
-      const response = await fetch('/api/account', { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      const response = await fetch(apiUrl('/api/account'), { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || 'Account deletion failed. Please try again.');
       await supabase.auth.signOut();

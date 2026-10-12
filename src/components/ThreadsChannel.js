@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { apiUrl } from '../lib/api';
 import ThreadsPlanner from './ThreadsPlanner';
 
 const DEFAULT_STORAGE_BUCKET = process.env.REACT_APP_SUPABASE_STORAGE_BUCKET || 'threads-media';
@@ -19,7 +20,7 @@ export default function ThreadsChannel({ user }) {
     const headers = { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(options.headers || {}) };
     const { data: sessionData } = await supabase.auth.getSession();
     if (sessionData.session?.access_token) headers.Authorization = `Bearer ${sessionData.session.access_token}`;
-    const response = await fetch(path, { ...options, headers });
+    const response = await fetch(apiUrl(path), { ...options, headers });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || 'Threads request failed.');
     return data;

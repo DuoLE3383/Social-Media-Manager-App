@@ -34,8 +34,10 @@
   },
   "scripts": {
     "start": "react-scripts start",
+    "server": "node server/index.mjs",
     "build": "react-scripts build",
-    "deploy:cloudflare": "npm run build && npx --yes wrangler@4 pages deploy ./build --project-name social-media-ai-saas",
+    "deploy:cloudflare": "npm run build && npx --yes wrangler@4 deploy",
+    "deploy:dev": "npm run deploy:cloudflare && npm run dev:clean",
     "tunnel": "cloudflared tunnel --url http://localhost:8787",
     "dev:tunnel": "node scripts/dev.mjs --tunnel",
     "test": "react-scripts test",

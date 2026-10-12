@@ -1,3 +1,6 @@
-name = "social-media-ai-saas"
-pages_build_output_dir = "./build"
+name = "social-media-manager-app"
 compatibility_date = "2026-10-12"
+
+[assets]
+directory = "./build"
+not_found_handling = "single-page-application"

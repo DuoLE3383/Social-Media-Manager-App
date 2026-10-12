@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { apiUrl } from '../lib/api';
 
 const HEARTBEAT_MS = 15_000;
 
@@ -38,7 +39,7 @@ export function usePromptRunner() {
     heartbeatTimerRef.current = setInterval(() => setLastHeartbeat(new Date().toISOString()), HEARTBEAT_MS);
     try {
       setStatus('running');
-      const response = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal: controller.signal });
+      const response = await fetch(apiUrl(url), { method: 'POST', headers, body: JSON.stringify(body), signal: controller.signal });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.message || data.error || `Request failed (${response.status}).`);
       setStatus('done');

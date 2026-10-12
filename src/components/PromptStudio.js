@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { promptTemplates } from '../data/promptTemplates';
 import { supabase } from '../lib/supabase';
+import { apiUrl } from '../lib/api';
 import { getModelTier, setModelTier } from '../lib/modelTier';
 import ModelTierToggle from './ModelTierToggle';
 import { usePromptRunner } from '../hooks/usePromptRunner';
@@ -36,7 +37,7 @@ export default function PromptStudio({ user }) {
   const runner = usePromptRunner();
 
   useEffect(() => {
-    fetch('/api/health').then((response) => response.json().then((data) => ({ response, data })))
+    fetch(apiUrl('/api/health')).then((response) => response.json().then((data) => ({ response, data })))
       .then(({ response, data }) => setService(response.ok ? { state: 'online', ...data } : { state: 'offline' }))
       .catch(() => setService({ state: 'offline' }));
     if (supabase && user?.id) {

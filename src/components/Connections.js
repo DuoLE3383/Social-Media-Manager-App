@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { apiUrl } from '../lib/api';
 import ThreadsChannel from './ThreadsChannel';
 
 export default function Connections({ user }) {
@@ -17,7 +18,7 @@ export default function Connections({ user }) {
       const { data } = await supabase.auth.getSession();
       if (data.session?.access_token) headers.Authorization = `Bearer ${data.session.access_token}`;
     }
-    const response = await fetch(path, { ...options, headers });
+    const response = await fetch(apiUrl(path), { ...options, headers });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || 'Request failed.');
     return data;
