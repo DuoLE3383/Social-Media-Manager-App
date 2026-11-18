@@ -11,7 +11,6 @@ import {
   faVideo,
   faImage,
   faWandMagicSparkles,
-  faBook,
   faCrown,
   faMoon,
   faSun,
@@ -28,34 +27,49 @@ const NAV_LABELS = {
   feed: { vi: 'Bảng tin', en: 'Feed' },
   agents: { vi: 'Agent Builder', en: 'Agent Builder' },
   reports: { vi: 'Báo cáo', en: 'Reports' },
-  accounts: { vi: 'Tài khoản', en: 'Accounts' },
-  createVideo: { vi: 'Tạo Video', en: 'Create Video' },
+  accounts: { vi: 'Kết nối', en: 'Connections' },
   createImage: { vi: 'Tạo Ảnh', en: 'Create Image' },
   smartPrompt: { vi: 'Gợi ý thông minh', en: 'Smart Prompt' },
   library: { vi: 'Thư viện AI', en: 'AI Library' },
   aiStudio: { vi: 'AI STUDIO', en: 'AI STUDIO' },
+  manage: { vi: 'QUẢN LÝ NỘI DUNG', en: 'CONTENT' },
+  account: { vi: 'TÀI KHOẢN', en: 'ACCOUNT' },
 };
 
-// Each item has an `activeOn` field: the route(s) on which THIS item is the
-// primary highlight. Only one item should be active per route.
+// Menu follows the working flow of the app: see your status first, create with
+// AI, manage the results, then accounts. Each section has an optional labelKey
+// rendered as a group heading. Only ONE item per route (the old duplicate
+// "Tạo Video" + "Thư viện AI" pair both pointed at /ai-library — video
+// creation now lives inside the AI Library page, which has its own button).
 const NAV_SECTIONS = [
   {
     items: [
       { to: '/dashboard', icon: faBoxesStacked, labelKey: 'overview', activeOn: ['/dashboard', '/overview'] },
-      { to: '/publish-plan', icon: faCalendarDays, labelKey: 'publish', activeOn: ['/publish-plan'] },
-      { to: '/feed', icon: faComments, labelKey: 'feed', activeOn: ['/feed'] },
+    ],
+  },
+  {
+    labelKey: 'aiStudio',
+    items: [
       { to: '/prompts', icon: faRobot, labelKey: 'agents', activeOn: ['/prompts'] },
+      { to: '/smart-prompt', icon: faWandMagicSparkles, labelKey: 'smartPrompt', activeOn: ['/smart-prompt'] },
+      { to: '/create-image', icon: faImage, labelKey: 'createImage', activeOn: ['/create-image'] },
+      { to: '/ai-library', icon: faVideo, labelKey: 'library', activeOn: ['/ai-library'] },
+    ],
+  },
+  {
+    labelKey: 'manage',
+    items: [
+      { to: '/feed', icon: faComments, labelKey: 'feed', activeOn: ['/feed'] },
+      { to: '/publish-plan', icon: faCalendarDays, labelKey: 'publish', activeOn: ['/publish-plan'] },
       { to: '/reports', icon: faChartLine, labelKey: 'reports', activeOn: ['/reports'] },
+    ],
+  },
+  {
+    labelKey: 'account',
+    items: [
       { to: '/settings', icon: faUsers, labelKey: 'accounts', activeOn: ['/settings'] },
     ],
   },
-];
-
-const AI_STUDIO_ITEMS = [
-  { to: '/ai-library', icon: faVideo, labelKey: 'createVideo', activeOn: [], isAction: true },
-  { to: '/create-image', icon: faImage, labelKey: 'createImage', activeOn: ['/create-image'] },
-  { to: '/smart-prompt', icon: faWandMagicSparkles, labelKey: 'smartPrompt', activeOn: ['/smart-prompt'] },
-  { to: '/ai-library', icon: faBook, labelKey: 'library', activeOn: ['/ai-library'] },
 ];
 
 const ROUTE_TITLES = {
@@ -107,7 +121,7 @@ const ROUTE_TITLES = {
 
 const isMatch = (activeOn, pathname) => Array.isArray(activeOn) && activeOn.some((p) => pathname === p || pathname.startsWith(p + '/'));
 
-const AppShell = ({ user, theme, onToggleTheme, onLogout, onCreateVideo, children }) => {
+const AppShell = ({ user, theme, onToggleTheme, onLogout, children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -145,6 +159,9 @@ const AppShell = ({ user, theme, onToggleTheme, onLogout, onCreateVideo, childre
         <nav className="app-nav">
           {NAV_SECTIONS.map((section, i) => (
             <div className="app-nav-section" key={i}>
+              {section.labelKey && (
+                <div className="app-nav-group-label">{labelFor(section.labelKey)}</div>
+              )}
               {section.items.map((item) => {
                 const active = isMatch(item.activeOn, location.pathname);
                 return (
@@ -160,30 +177,6 @@ const AppShell = ({ user, theme, onToggleTheme, onLogout, onCreateVideo, childre
               })}
             </div>
           ))}
-
-          <div className="app-nav-group-label">{labelFor('aiStudio')}</div>
-          <div className="app-nav-section">
-            {AI_STUDIO_ITEMS.map((item) => {
-              const active = isMatch(item.activeOn, location.pathname);
-              return (
-                <Link
-                  key={item.labelKey}
-                  className={`app-nav-item${active ? ' active' : ''}`}
-                  to={item.to}
-                  onClick={(e) => {
-                    if (item.isAction && onCreateVideo) {
-                      e.preventDefault();
-                      onCreateVideo();
-                      navigate('/ai-library');
-                    }
-                    setMobileOpen(false);
-                  }}
-                >
-                  <FontAwesomeIcon icon={item.icon} /> <span>{labelFor(item.labelKey)}</span>
-                </Link>
-              );
-            })}
-          </div>
         </nav>
 
         <div className="app-sidebar-footer">
