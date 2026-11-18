@@ -13,7 +13,7 @@ function readHistory() {
   try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch { return []; }
 }
 
-export default function PromptStudio({ user }) {
+export default function PromptStudio({ user, embedded = false }) {
   const [selectedId, setSelectedId] = useState(promptTemplates[0].id);
   const [category, setCategory] = useState('All');
   const [query, setQuery] = useState('');
@@ -193,11 +193,11 @@ export default function PromptStudio({ user }) {
   };
 
   return (
-    <main className="studio-shell">
-      <header className="studio-header">
+    <main className={embedded ? 'studio-shell studio-embedded' : 'studio-shell'}>
+      {!embedded && <header className="studio-header">
         <div><span className="eyebrow">SOCIAL MEDIA WORKSPACE</span><h1>Prompt Studio</h1><p>Plan, create, and refine content with 15 reusable workflows.</p></div>
         <div className={`service-pill ${service.state}`}><span className="status-dot" />{service.state === 'online' ? `${service.provider} · ${service.model}` : service.state === 'checking' ? 'Đang kiểm tra AI…' : 'AI offline'}</div>
-      </header>
+      </header>}
       {service.state === 'offline' && <div className="studio-alert service-offline-alert">
         <strong>Máy chủ AI chưa kết nối được.</strong> Các tính năng tạo nội dung (Prompt Studio) cần API server. Trên server hãy chạy:
         <code>pm2 start ecosystem.config.cjs --update-env</code> hoặc <code>npm run server</code>, và đảm bảo Ollama đang chạy (<code>ollama serve</code>).
@@ -250,7 +250,7 @@ export default function PromptStudio({ user }) {
           {(result || (busy && (mode === 'quick' || draftingGuided))) && <section className="result-card"><div className="result-heading"><div><span className="eyebrow">AI OUTPUT</span><h3>{mode === 'guided' ? 'Guided draft' : 'Draft'}</h3></div>{result && <button className="btn btn-sm btn-outline-secondary" onClick={() => navigator.clipboard?.writeText(result).then(() => setNotice('Copied to clipboard.'))}>Copy</button>}</div>{resultMeta && <div className="output-meta"><span className="chip">{resultMeta.model || 'Model unavailable'}</span><span className="chip">{resultMeta.tier === 'premium' ? 'Chất lượng' : 'Nhanh'}</span>{Number.isFinite(resultMeta.durationMs) && <span className="chip">{(resultMeta.durationMs / 1000).toFixed(1)}s</span>}{resultMeta.fallbackFrom && <span className="chip" title={resultMeta.fallbackReason}>Fallback from {resultMeta.fallbackFrom}</span>}</div>}{busy && !result ? <div className="result-loading"><span className="spinner-border spinner-border-sm me-2" />{draftingGuided ? `Finishing with ${runningModel || 'AI'}…` : `Working with ${runningModel || 'AI'}…`}</div> : <pre className="result-text">{result}</pre>}</section>}
         </section>
       </div>
-      <footer className="studio-footer">Signed in as {user?.email || user?.name || 'demo user'} <span>·</span> {supabase ? 'Brand voice and prompt run history sync to your Supabase account.' : 'Draft history and brand context are stored in this browser.'}</footer>
+      {!embedded && <footer className="studio-footer">Signed in as {user?.email || user?.name || 'demo user'} <span>·</span> {supabase ? 'Brand voice and prompt run history sync to your Supabase account.' : 'Draft history and brand context are stored in this browser.'}</footer>}
     </main>
   );
 }

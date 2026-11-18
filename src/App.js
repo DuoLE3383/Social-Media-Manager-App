@@ -10,7 +10,7 @@ import Reports from './components/Reports';
 import CreateImage from './components/CreateImage';
 import SmartPrompt from './components/SmartPrompt';
 import Profile from './components/Profile';
-import PromptStudio from './components/PromptStudio';
+import AgentStudio from './components/AgentStudio';
 import { supabase } from './lib/supabase';
 import Connections from './components/Connections';
 import DataDeletion from './components/DataDeletion';
@@ -90,7 +90,7 @@ function App() {
                   <Route path="/feed" element={<Feed user={user} />} />
                   <Route path="/publish-plan" element={<PublishPlan user={user} />} />
                   <Route path="/reports" element={<Reports user={user} />} />
-                  <Route path="/prompts" element={<PromptStudio user={user} />} />
+                  <Route path="/prompts" element={<AgentStudio user={user} />} />
                   <Route path="/create-image" element={<CreateImage user={user} />} />
                   <Route path="/smart-prompt" element={<SmartPrompt user={user} />} />
                   <Route path="/ai-library" element={<AILibrary ref={libraryRef} user={user} />} />

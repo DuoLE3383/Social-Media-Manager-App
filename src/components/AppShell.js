@@ -5,7 +5,7 @@ import {
   faBoxesStacked,
   faCalendarDays,
   faComments,
-  faNewspaper,
+  faRobot,
   faChartLine,
   faUsers,
   faVideo,
@@ -20,41 +20,89 @@ import {
   faBars,
   faTimes,
 } from '@fortawesome/free-solid-svg-icons';
+import { useLang } from '../lib/i18n';
+
+const NAV_LABELS = {
+  overview: { vi: 'Tổng quan', en: 'Overview' },
+  publish: { vi: 'Lịch đăng', en: 'Publish Plan' },
+  feed: { vi: 'Bảng tin', en: 'Feed' },
+  agents: { vi: 'Agent Studio', en: 'Agent Studio' },
+  reports: { vi: 'Báo cáo', en: 'Reports' },
+  accounts: { vi: 'Tài khoản', en: 'Accounts' },
+  createVideo: { vi: 'Tạo Video', en: 'Create Video' },
+  createImage: { vi: 'Tạo Ảnh', en: 'Create Image' },
+  smartPrompt: { vi: 'Gợi ý thông minh', en: 'Smart Prompt' },
+  library: { vi: 'Thư viện AI', en: 'AI Library' },
+  aiStudio: { vi: 'AI STUDIO', en: 'AI STUDIO' },
+};
 
 // Each item has an `activeOn` field: the route(s) on which THIS item is the
 // primary highlight. Only one item should be active per route.
 const NAV_SECTIONS = [
   {
     items: [
-      { to: '/dashboard', icon: faBoxesStacked, label: 'Overview', activeOn: ['/dashboard', '/overview'] },
-      { to: '/publish-plan', icon: faCalendarDays, label: 'Publish Plan', activeOn: ['/publish-plan'] },
-      { to: '/feed', icon: faComments, label: 'Feed', activeOn: ['/feed'] },
-      { to: '/prompts', icon: faNewspaper, label: 'Posts', activeOn: ['/prompts'] },
-      { to: '/reports', icon: faChartLine, label: 'Reports', activeOn: ['/reports'] },
-      { to: '/settings', icon: faUsers, label: 'Accounts', activeOn: ['/settings'] },
+      { to: '/dashboard', icon: faBoxesStacked, labelKey: 'overview', activeOn: ['/dashboard', '/overview'] },
+      { to: '/publish-plan', icon: faCalendarDays, labelKey: 'publish', activeOn: ['/publish-plan'] },
+      { to: '/feed', icon: faComments, labelKey: 'feed', activeOn: ['/feed'] },
+      { to: '/prompts', icon: faRobot, labelKey: 'agents', activeOn: ['/prompts'] },
+      { to: '/reports', icon: faChartLine, labelKey: 'reports', activeOn: ['/reports'] },
+      { to: '/settings', icon: faUsers, labelKey: 'accounts', activeOn: ['/settings'] },
     ],
   },
 ];
 
 const AI_STUDIO_ITEMS = [
-  { to: '/ai-library', icon: faVideo, label: 'Create Video', activeOn: [], isAction: true },
-  { to: '/create-image', icon: faImage, label: 'Create Image', activeOn: ['/create-image'] },
-  { to: '/smart-prompt', icon: faWandMagicSparkles, label: 'Smart Prompt', activeOn: ['/smart-prompt'] },
-  { to: '/ai-library', icon: faBook, label: 'AI Library', activeOn: ['/ai-library'] },
+  { to: '/ai-library', icon: faVideo, labelKey: 'createVideo', activeOn: [], isAction: true },
+  { to: '/create-image', icon: faImage, labelKey: 'createImage', activeOn: ['/create-image'] },
+  { to: '/smart-prompt', icon: faWandMagicSparkles, labelKey: 'smartPrompt', activeOn: ['/smart-prompt'] },
+  { to: '/ai-library', icon: faBook, labelKey: 'library', activeOn: ['/ai-library'] },
 ];
 
 const ROUTE_TITLES = {
-  '/dashboard': { title: 'Overview', sub: 'Tổng quan hoạt động AI Social của bạn trong 7 ngày qua.' },
-  '/overview': { title: 'Overview', sub: 'Tổng quan hoạt động AI Social của bạn trong 7 ngày qua.' },
-  '/feed': { title: 'Feed', sub: 'Bảng tin nội dung từ các kênh bạn quản lý.' },
-  '/publish-plan': { title: 'Publish Plan', sub: 'Lịch đăng bài theo tuần và theo nền tảng.' },
-  '/reports': { title: 'Reports', sub: 'Phân tích tương tác, lượt tiếp cận và hiệu suất nội dung.' },
-  '/prompts': { title: 'Prompt Studio', sub: 'Lập kế hoạch, soạn và tinh chỉnh nội dung với AI.' },
-  '/create-image': { title: 'Create Image', sub: 'Sinh ảnh AI từ prompt — chọn phong cách và tỉ lệ khung hình.' },
-  '/smart-prompt': { title: 'Smart Prompt', sub: 'Trợ lý ý tưởng nội dung và template prompt.' },
-  '/ai-library': { title: 'AI Library', sub: 'Duyệt, tìm và quản lý video/ảnh AI đã tạo.' },
-  '/settings': { title: 'Connections', sub: 'Quản lý tài khoản mạng xã hội và tích hợp.' },
-  '/profile': { title: 'Profile', sub: 'Thông tin tài khoản và tuỳ chọn.' },
+  '/dashboard': {
+    vi: { title: 'Tổng quan', sub: 'Hoạt động AI Social của bạn trong 7 ngày qua.' },
+    en: { title: 'Overview', sub: 'Your AI Social activity over the last 7 days.' },
+  },
+  '/overview': {
+    vi: { title: 'Tổng quan', sub: 'Hoạt động AI Social của bạn trong 7 ngày qua.' },
+    en: { title: 'Overview', sub: 'Your AI Social activity over the last 7 days.' },
+  },
+  '/feed': {
+    vi: { title: 'Bảng tin', sub: 'Nội dung từ các kênh bạn quản lý.' },
+    en: { title: 'Feed', sub: 'Content from the channels you manage.' },
+  },
+  '/publish-plan': {
+    vi: { title: 'Lịch đăng', sub: 'Lịch đăng bài theo tháng và theo nền tảng.' },
+    en: { title: 'Publish Plan', sub: 'Monthly publishing calendar across platforms.' },
+  },
+  '/reports': {
+    vi: { title: 'Báo cáo', sub: 'Phân tích tương tác, lượt tiếp cận và hiệu suất nội dung.' },
+    en: { title: 'Reports', sub: 'Engagement, reach and content performance analytics.' },
+  },
+  '/prompts': {
+    vi: { title: 'Agent Studio', sub: 'Xây dựng và chạy các agent nội dung nhiều bước với AI.' },
+    en: { title: 'Agent Studio', sub: 'Build and run multi-step AI content agents.' },
+  },
+  '/create-image': {
+    vi: { title: 'Tạo Ảnh', sub: 'Sinh ảnh AI thật từ prompt — ComfyUI, AI Horde hoặc poster.' },
+    en: { title: 'Create Image', sub: 'Generate real AI images from prompts — ComfyUI, AI Horde or poster.' },
+  },
+  '/smart-prompt': {
+    vi: { title: 'Gợi ý thông minh', sub: 'Trợ lý ý tưởng nội dung và template prompt.' },
+    en: { title: 'Smart Prompt', sub: 'Content idea assistant and prompt templates.' },
+  },
+  '/ai-library': {
+    vi: { title: 'Thư viện AI', sub: 'Tạo video storyboard và quản lý video/ảnh AI đã tạo.' },
+    en: { title: 'AI Library', sub: 'Create storyboard videos and manage generated media.' },
+  },
+  '/settings': {
+    vi: { title: 'Kết nối', sub: 'Quản lý tài khoản mạng xã hội và tích hợp.' },
+    en: { title: 'Connections', sub: 'Manage social accounts and integrations.' },
+  },
+  '/profile': {
+    vi: { title: 'Hồ sơ', sub: 'Thông tin tài khoản và tuỳ chọn.' },
+    en: { title: 'Profile', sub: 'Account details and preferences.' },
+  },
 };
 
 const isMatch = (activeOn, pathname) => Array.isArray(activeOn) && activeOn.some((p) => pathname === p || pathname.startsWith(p + '/'));
@@ -64,8 +112,10 @@ const AppShell = ({ user, theme, onToggleTheme, onLogout, onCreateVideo, childre
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [lang, setLang] = useLang();
+  const L = NAV_LABELS[lang];
 
-  const routeInfo = ROUTE_TITLES[location.pathname] || { title: 'AI Social', sub: '' };
+  const routeInfo = ROUTE_TITLES[location.pathname] ? ROUTE_TITLES[location.pathname][lang] : { title: 'AI Social', sub: '' };
 
   const handleNavClick = (e, to) => {
     if (to === location.pathname) {
@@ -98,25 +148,25 @@ const AppShell = ({ user, theme, onToggleTheme, onLogout, onCreateVideo, childre
                 const active = isMatch(item.activeOn, location.pathname);
                 return (
                   <Link
-                    key={item.label}
+                    key={item.labelKey}
                     className={`app-nav-item${active ? ' active' : ''}`}
                     to={item.to}
                     onClick={(e) => handleNavClick(e, item.to)}
                   >
-                    <FontAwesomeIcon icon={item.icon} /> <span>{item.label}</span>
+                    <FontAwesomeIcon icon={item.icon} /> <span>{L[item.labelKey]}</span>
                   </Link>
                 );
               })}
             </div>
           ))}
 
-          <div className="app-nav-group-label">AI Studio</div>
+          <div className="app-nav-group-label">{L.aiStudio}</div>
           <div className="app-nav-section">
             {AI_STUDIO_ITEMS.map((item) => {
               const active = isMatch(item.activeOn, location.pathname);
               return (
                 <Link
-                  key={item.label}
+                  key={item.labelKey}
                   className={`app-nav-item${active ? ' active' : ''}`}
                   to={item.to}
                   onClick={(e) => {
@@ -128,7 +178,7 @@ const AppShell = ({ user, theme, onToggleTheme, onLogout, onCreateVideo, childre
                     setMobileOpen(false);
                   }}
                 >
-                  <FontAwesomeIcon icon={item.icon} /> <span>{item.label}</span>
+                  <FontAwesomeIcon icon={item.icon} /> <span>{L[item.labelKey]}</span>
                 </Link>
               );
             })}
@@ -139,10 +189,10 @@ const AppShell = ({ user, theme, onToggleTheme, onLogout, onCreateVideo, childre
           <div className="app-pro-card">
             <FontAwesomeIcon icon={faCrown} className="app-pro-icon" />
             <div className="app-pro-text">
-              <div className="app-pro-title">PRO Plan</div>
-              <div className="app-pro-sub">Unlimited renders</div>
+              <div className="app-pro-title">PRO</div>
+              <div className="app-pro-sub">{lang === 'vi' ? 'Gói không giới hạn' : 'Unlimited renders'}</div>
             </div>
-            <button className="app-pro-btn" type="button">Upgrade</button>
+            <button className="app-pro-btn" type="button">{lang === 'vi' ? 'Nâng cấp' : 'Upgrade'}</button>
           </div>
           <div className="app-sidebar-user">
             <img
@@ -152,7 +202,7 @@ const AppShell = ({ user, theme, onToggleTheme, onLogout, onCreateVideo, childre
             />
             <div className="app-sidebar-user-info">
               <div className="app-sidebar-user-name">{user?.name || 'User'}</div>
-              <Link className="app-sidebar-user-link" to="/profile" onClick={() => setMobileOpen(false)}>View profile</Link>
+              <Link className="app-sidebar-user-link" to="/profile" onClick={() => setMobileOpen(false)}>{lang === 'vi' ? 'Xem hồ sơ' : 'View profile'}</Link>
             </div>
           </div>
         </div>
@@ -169,6 +219,10 @@ const AppShell = ({ user, theme, onToggleTheme, onLogout, onCreateVideo, childre
             {routeInfo.sub && <p>{routeInfo.sub}</p>}
           </div>
           <div className="app-topbar-actions">
+            <div className="app-lang-toggle" role="group" aria-label="Language / Ngôn ngữ">
+              <button type="button" className={lang === 'vi' ? 'active' : ''} onClick={() => setLang('vi')}>VI</button>
+              <button type="button" className={lang === 'en' ? 'active' : ''} onClick={() => setLang('en')}>EN</button>
+            </div>
             <button className="app-icon-btn" type="button" onClick={onToggleTheme} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>
               <FontAwesomeIcon icon={theme === 'dark' ? faSun : faMoon} />
             </button>
@@ -186,11 +240,11 @@ const AppShell = ({ user, theme, onToggleTheme, onLogout, onCreateVideo, childre
                   <div className="app-menu-backdrop" onClick={() => setMenuOpen(false)} />
                   <div className="app-user-dropdown">
                     <Link to="/profile" onClick={() => setMenuOpen(false)} className="app-dropdown-item">
-                      <FontAwesomeIcon icon={faUser} /> My Profile
+                      <FontAwesomeIcon icon={faUser} /> {lang === 'vi' ? 'Hồ sơ của tôi' : 'My Profile'}
                     </Link>
                     <div className="app-dropdown-divider" />
                     <button className="app-dropdown-item danger" type="button" onClick={() => { setMenuOpen(false); onLogout(); }}>
-                      <FontAwesomeIcon icon={faSignOutAlt} /> Logout
+                      <FontAwesomeIcon icon={faSignOutAlt} /> {lang === 'vi' ? 'Đăng xuất' : 'Logout'}
                     </button>
                   </div>
                 </>

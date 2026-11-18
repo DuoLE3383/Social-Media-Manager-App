@@ -419,10 +419,10 @@ async function createThreadsSignedMediaUrl(path) {
   return `${SUPABASE_URL.replace(/\/$/, '')}/storage/v1${signedPath}`;
 }
 
-function comfyWorkflow(prompt) {
+function comfyWorkflow(prompt, width = 768, height = 960) {
   return {
     '1': { class_type: 'CheckpointLoaderSimple', inputs: { ckpt_name: COMFYUI_CHECKPOINT } },
-    '2': { class_type: 'EmptyLatentImage', inputs: { width: 768, height: 960, batch_size: 1 } },
+    '2': { class_type: 'EmptyLatentImage', inputs: { width, height, batch_size: 1 } },
     '3': { class_type: 'CLIPTextEncode', inputs: { text: prompt, clip: ['1', 1] } },
     '4': { class_type: 'CLIPTextEncode', inputs: { text: 'text, letters, watermark, logo, low quality, blurry, distorted hands, extra fingers, duplicate people', clip: ['1', 1] } },
     '5': { class_type: 'KSampler', inputs: { seed: randomBytes(4).readUInt32LE(0), steps: 18, cfg: 6, sampler_name: 'dpmpp_2m', scheduler: 'karras', denoise: 1, model: ['1', 0], positive: ['3', 0], negative: ['4', 0], latent_image: ['2', 0] } },
@@ -431,14 +431,14 @@ function comfyWorkflow(prompt) {
   };
 }
 
-async function generateLocalThreadsImage(imagePrompt) {
+async function generateLocalThreadsImage(imagePrompt, width = 768, height = 960) {
   if (!COMFYUI_URL) throw metaError('Local ComfyUI is not configured.', 503);
   const prompt = typeof imagePrompt === 'string' ? imagePrompt.trim() : '';
   if (!prompt || prompt.length > 4000) throw metaError('Image prompt is missing or too long.', 400);
   const clientId = randomBytes(12).toString('hex');
   const queuedResponse = await fetchWithTimeout(`${COMFYUI_URL}/prompt`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt: comfyWorkflow(prompt), client_id: clientId })
+    body: JSON.stringify({ prompt: comfyWorkflow(prompt, width, height), client_id: clientId })
   }, 15_000);
   const queued = await queuedResponse.json().catch(() => ({}));
   if (!queuedResponse.ok || !queued.prompt_id) {
@@ -467,16 +467,16 @@ async function generateLocalThreadsImage(imagePrompt) {
   return bytes;
 }
 
-async function generateHordeThreadsImage(imagePrompt) {
+async function generateHordeThreadsImage(imagePrompt, width = 768, height = 960, waitMs = null) {
   const base = 'https://aihorde.net/api/v2';
   const headers = { 'Content-Type': 'application/json', apikey: process.env.HORDE_API_KEY || '0000000000', 'Client-Agent': 'social-media-manager-app:0.2.0:github' };
   const request = await fetchWithTimeout(`${base}/generate/async`, {
     method: 'POST', headers,
-    body: JSON.stringify({ prompt: `${imagePrompt}###text, letters, watermark, logo, low quality, blurry, distorted hands, extra fingers, duplicate people`, params: { width: 768, height: 960, steps: 20, n: 1 }, nsfw: false, models: ['stable_diffusion_xl'] })
+    body: JSON.stringify({ prompt: `${imagePrompt}###text, letters, watermark, logo, low quality, blurry, distorted hands, extra fingers, duplicate people`, params: { width, height, steps: 20, n: 1 }, nsfw: false, models: ['stable_diffusion_xl'] })
   }, 20_000);
   const submitted = await request.json().catch(() => ({}));
   if (!request.ok || !submitted.id) throw metaError(`AI Horde could not accept the image job (${request.status}).`, 502);
-  const deadline = Date.now() + positiveInt(process.env.HORDE_IMAGE_TIMEOUT_MS, 900_000);
+  const deadline = Date.now() + (waitMs || positiveInt(process.env.HORDE_IMAGE_TIMEOUT_MS, 900_000));
   while (Date.now() < deadline) {
     await new Promise((resolve) => setTimeout(resolve, 5000));
     const checkResponse = await fetchWithTimeout(`${base}/generate/check/${encodeURIComponent(submitted.id)}`, { headers: { apikey: headers.apikey, 'Client-Agent': headers['Client-Agent'] } }, 15_000);
@@ -524,6 +524,74 @@ async function comfyImageServiceStatus() {
     if (!checkpoints.includes(COMFYUI_CHECKPOINT)) return { available: false, message: `Install ${COMFYUI_CHECKPOINT} in ComfyUI and restart it.` };
     return { available: true, message: null };
   } catch { return { available: false, message: 'ComfyUI is not reachable. Start it on this computer before scheduling image posts.' }; }
+}
+
+// Designed cover image generated deterministically from the prompt. Used as the
+// last-resort fallback when neither ComfyUI nor AI Horde is available, so Create
+// Image always returns something derived from the prompt (instead of random
+// placeholder photos).
+const POSTER_PALETTES = [
+  ['#7C6FF0', '#4736A8'], ['#F06FA8', '#A8366F'], ['#6FC8F0', '#365FA8'],
+  ['#6FF0B3', '#2E9E6E'], ['#F0C86F', '#A87A36'], ['#F0886F', '#A84536'],
+  ['#9D6FF0', '#5B36A8'], ['#6FF0E1', '#2E9E93'],
+];
+
+function posterFallbackSvg(prompt, width = 768, height = 768) {
+  let hash = 2166136261;
+  for (let i = 0; i < prompt.length; i += 1) { hash ^= prompt.charCodeAt(i); hash = Math.imul(hash, 16777619) >>> 0; }
+  const [c1, c2] = POSTER_PALETTES[hash % POSTER_PALETTES.length];
+  const angle = (hash >> 3) % 360;
+  const r1 = 18 + ((hash >> 7) % 22);
+  const r2 = 12 + ((hash >> 11) % 18);
+  const r3 = 8 + ((hash >> 15) % 14);
+  const escaped = prompt.slice(0, 240).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const words = escaped.split(/\s+/).filter(Boolean);
+  const perLine = width > height ? 30 : 24;
+  const lines = [];
+  let line = '';
+  for (const word of words) {
+    if ((line + ' ' + word).trim().length > perLine) { lines.push(line.trim()); line = word; if (lines.length >= 7) break; }
+    else line = `${line} ${word}`;
+  }
+  if (line.trim() && lines.length < 7) lines.push(line.trim());
+  const fontSize = Math.max(19, Math.round(width / 22));
+  const lineH = Math.round(fontSize * 1.42);
+  const blockH = lines.length * lineH;
+  const startY = Math.max(height * 0.30, (height - blockH) / 2);
+  const textEls = lines.map((l, i) => `<text x="${width / 2}" y="${Math.round(startY + i * lineH)}" font-family="'Segoe UI', system-ui, -apple-system, sans-serif" font-size="${fontSize}" font-weight="600" fill="#ffffff" text-anchor="middle" dominant-baseline="middle">${l}</text>`).join('');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <defs><linearGradient id="g" gradientTransform="rotate(${angle} 0.5 0.5)"><stop offset="0%" stop-color="${c1}"/><stop offset="100%" stop-color="${c2}"/></linearGradient></defs>
+  <rect width="${width}" height="${height}" fill="url(#g)"/>
+  <circle cx="${width * 0.82}" cy="${height * 0.16}" r="${width * r1 / 100}" fill="#ffffff" opacity="0.10"/>
+  <circle cx="${width * 0.14}" cy="${height * 0.74}" r="${width * r2 / 100}" fill="#ffffff" opacity="0.12"/>
+  <circle cx="${width * 0.88}" cy="${height * 0.86}" r="${width * r3 / 100}" fill="#ffffff" opacity="0.14"/>
+  <rect x="${width * 0.10}" y="${startY - lineH * 0.95}" width="${width * 0.80}" height="${blockH + lineH * 0.35}" rx="14" fill="#000000" opacity="0.22"/>
+  ${textEls}
+  <text x="${width / 2}" y="${height - Math.round(height * 0.06)}" font-family="'Segoe UI', system-ui, sans-serif" font-size="${Math.max(14, Math.round(width / 42))}" fill="#ffffff" opacity="0.85" text-anchor="middle">AI Social · ảnh thử nghiệm (poster)</text>
+</svg>`;
+  return Buffer.from(svg, 'utf8');
+}
+
+async function generateImageWithFallback(prompt, width, height, allowHorde) {
+  try {
+    const bytes = await generateLocalThreadsImage(prompt, width, height);
+    console.log('Image generated with local ComfyUI.');
+    return { bytes, provider: 'comfyui' };
+  } catch (localError) {
+    console.warn('ComfyUI image generation unavailable:', localError.message);
+  }
+  if (allowHorde !== false) {
+    try {
+      // Cap the wait at 280s so the whole request stays under nginx's 360s
+      // proxy_read_timeout (deploy/nginx.conf.example).
+      const waitMs = Math.min(positiveInt(process.env.HORDE_IMAGE_TIMEOUT_MS, 900_000), 280_000);
+      const bytes = await generateHordeThreadsImage(prompt, width, height, waitMs);
+      return { bytes, provider: 'aihorde' };
+    } catch (hordeError) {
+      console.warn('AI Horde image generation unavailable:', hordeError.message);
+    }
+  }
+  return { bytes: posterFallbackSvg(prompt, width, height), provider: 'poster' };
 }
 
 async function storeScheduledThreadsImage(userId, postId, bytes) {
@@ -1139,6 +1207,38 @@ const server = http.createServer(async (req, res) => {
       }
       send(res, 200, { vectors: data.embeddings, model: MODEL_EMBED });
     } catch (error) { if (!res.destroyed) send(res, error.status || 502, { error: error.message || 'Could not create embeddings. Check Ollama and model configuration.' }); }
+    return;
+  }
+  if (req.method === 'GET' && url.pathname === '/api/images/status') {
+    const comfy = await comfyImageServiceStatus();
+    send(res, 200, {
+      comfyui: { available: comfy.available, message: comfy.message },
+      horde: { available: true, note: 'Free community GPU queue — usually 1-5 minutes per image.' },
+      fallback: { available: true, note: 'Poster fallback: a designed cover generated from your prompt (instant, no diffusion model).' },
+    });
+    return;
+  }
+  if (req.method === 'POST' && url.pathname === '/api/images/generate') {
+    try {
+      const user = await authenticatedUser(req);
+      if (!checkRateLimit(`img:${user.id}`)) { send(res, 429, { error: 'Image rate limit reached. Wait a minute and try again.' }); return; }
+      const input = await bodyJson(req);
+      const prompt = typeof input.prompt === 'string' ? input.prompt.trim() : '';
+      if (!prompt || prompt.length > 4000) { send(res, 400, { error: 'Image prompt is required and must be under 4,000 characters.' }); return; }
+      const dims = { '1:1': [768, 768], '9:16': [576, 1024], '16:9': [1024, 576], '4:5': [704, 896] };
+      const [width, height] = dims[input.ratio] || dims['1:1'];
+      const startedAt = Date.now();
+      const { bytes, provider } = await generateImageWithFallback(prompt, width, height, input.allowHorde);
+      const mime = provider === 'poster' ? 'image/svg+xml' : 'image/png';
+      send(res, 200, {
+        image: `data:${mime};base64,${bytes.toString('base64')}`,
+        provider, width, height,
+        elapsedMs: Date.now() - startedAt,
+        createdAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      if (!res.destroyed) send(res, error.status || 500, { error: error.code || 'IMAGE_ERROR', message: error.message || 'Could not generate the image.' });
+    }
     return;
   }
   if (req.method === 'POST' && url.pathname === '/api/prompts/run') {

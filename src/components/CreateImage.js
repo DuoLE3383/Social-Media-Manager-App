@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faImage,
@@ -6,17 +6,20 @@ import {
   faDownload,
   faHeart,
   faTrash,
-  faArrowsRotate,
   faLayerGroup,
+  faServer,
+  faXmark,
 } from '@fortawesome/free-solid-svg-icons';
+import { useLang } from '../lib/i18n';
+import { apiUrl } from '../lib/api';
 
 const STYLES = [
-  { id: 'realistic', label: 'Thực tế' },
-  { id: 'anime', label: 'Anime' },
-  { id: 'cinematic', label: 'Điện ảnh' },
-  { id: 'digital-art', label: 'Digital Art' },
-  { id: 'oil-painting', label: 'Sơn dầu' },
-  { id: '3d-render', label: '3D Render' },
+  { id: 'realistic', labelVi: 'Thực tế', suffix: 'photorealistic, natural light, sharp focus, high detail' },
+  { id: 'anime', labelVi: 'Anime', suffix: 'anime style, vibrant colors, clean line art' },
+  { id: 'cinematic', labelVi: 'Điện ảnh', suffix: 'cinematic lighting, dramatic composition, film grain' },
+  { id: 'digital-art', labelVi: 'Digital Art', suffix: 'digital art, trending on artstation, detailed illustration' },
+  { id: 'oil-painting', labelVi: 'Sơn dầu', suffix: 'oil painting, thick brush strokes, classical art style' },
+  { id: '3d-render', labelVi: '3D Render', suffix: '3d render, octane render, soft studio lighting' },
 ];
 
 const RATIOS = [
@@ -34,71 +37,178 @@ const IDEA_PROMPTS = [
   'Ly cà phê sữa đá Việt Nam trên bàn gỗ, giọt ngưng tụ, ánh sáng tự nhiên',
 ];
 
-// Pre-generated gallery (uses picsum.photos with deterministic seeds).
-const SAMPLE_GALLERY = [
-  { id: 1, seed: 'createimg01', prompt: 'Orange cat on Hanoi street', style: 'realistic', ratio: '1:1', liked: true },
-  { id: 2, seed: 'createimg02', prompt: 'Bowl of pho with steam', style: 'cinematic', ratio: '4:5', liked: false },
-  { id: 3, seed: 'createimg03', prompt: 'Hoi An lantern festival at night', style: 'digital-art', ratio: '16:9', liked: true },
-  { id: 4, seed: 'createimg04', prompt: 'Sapa rice terraces at sunrise', style: 'realistic', ratio: '1:1', liked: false },
-  { id: 5, seed: 'createimg05', prompt: 'Vietnamese iced coffee close-up', style: 'cinematic', ratio: '1:1', liked: true },
-  { id: 6, seed: 'createimg06', prompt: 'Woman in yellow ao dai by lake', style: 'oil-painting', ratio: '4:5', liked: false },
-];
+const GALLERY_KEY = 'aiSocialImageGallery';
+const PERSIST_MAX_BYTES = 250_000; // keep small items (posters) in localStorage; big AI PNGs stay for the session
+
+const STRINGS = {
+  vi: {
+    eyebrow: 'TẠO ẢNH AI',
+    heading: 'Mô tả ý tưởng',
+    sub: 'Prompt gửi thẳng tới engine ảnh thật của server: ComfyUI cục bộ → AI Horde (miễn phí) → poster dự phòng.',
+    ideaBtn: 'Gợi ý prompt',
+    styleLabel: 'Phong cách',
+    ratioLabel: 'Tỉ lệ khung hình',
+    batchLabel: 'Số lượng',
+    generate: 'Tạo ảnh',
+    generating: 'Đang tạo…',
+    stopBtn: 'Dừng lại',
+    resultsTitle: 'Kết quả mới',
+    clearResults: 'Xoá tất cả',
+    emptyHint: 'Nhập prompt và bấm Tạo ảnh — ảnh thật sẽ về lần lượt từng tấm.',
+    galleryTitle: 'Thư viện ảnh đã lưu',
+    needPrompt: 'Hãy nhập prompt trước',
+    doneMsg: 'Đã tạo ảnh',
+    failedMsg: 'Tạo ảnh thất bại',
+    cancelled: 'Đã dừng tạo ảnh',
+    provider: { comfyui: 'ComfyUI', aihorde: 'AI Horde', poster: 'Poster thử nghiệm' },
+    engineTitle: 'Engine ảnh',
+    engineComfy: 'ComfyUI cục bộ đang hoạt động — ảnh AI thật, nhanh.',
+    engineHorde: 'AI Horde (miễn phí) — ảnh AI thật, mỗi ảnh có thể chờ 1–5 phút.',
+    enginePoster: 'Chưa có ComfyUI — sẽ dùng AI Horde; nếu quá tải thì trả về poster thử nghiệm sinh từ prompt của bạn.',
+    notePersist: 'Ảnh AI dung lượng lớn chỉ giữ trong phiên này — bấm tải xuống để lưu máy. Poster được lưu vào thư viện.',
+    download: 'Tải xuống',
+    save: 'Lưu vào thư viện',
+    like: 'Yêu thích',
+    del: 'Xoá',
+  },
+  en: {
+    eyebrow: 'AI IMAGE STUDIO',
+    heading: 'Describe your idea',
+    sub: 'Prompts go straight to the server’s real image engines: local ComfyUI → AI Horde (free) → poster fallback.',
+    ideaBtn: 'Suggest a prompt',
+    styleLabel: 'Style',
+    ratioLabel: 'Aspect ratio',
+    batchLabel: 'Count',
+    generate: 'Generate',
+    generating: 'Generating…',
+    stopBtn: 'Stop',
+    resultsTitle: 'Latest results',
+    clearResults: 'Clear all',
+    emptyHint: 'Type a prompt and press Generate — real images arrive one by one.',
+    galleryTitle: 'Saved gallery',
+    needPrompt: 'Enter a prompt first',
+    doneMsg: 'Images generated',
+    failedMsg: 'Image generation failed',
+    cancelled: 'Generation stopped',
+    provider: { comfyui: 'ComfyUI', aihorde: 'AI Horde', poster: 'Test poster' },
+    engineTitle: 'Image engine',
+    engineComfy: 'Local ComfyUI is online — real AI images, fast.',
+    engineHorde: 'AI Horde (free) — real AI images, allow 1–5 minutes per image.',
+    enginePoster: 'No ComfyUI detected — AI Horde is used; if overloaded a prompt-derived test poster is returned.',
+    notePersist: 'Large AI images live only in this session — download to keep them. Posters are saved to the gallery.',
+    download: 'Download',
+    save: 'Save to gallery',
+    like: 'Like',
+    del: 'Delete',
+  },
+};
 
 const CreateImage = () => {
+  const [lang] = useLang();
+  const T = STRINGS[lang];
   const [prompt, setPrompt] = useState('');
   const [style, setStyle] = useState('realistic');
   const [ratio, setRatio] = useState('1:1');
   const [batch, setBatch] = useState(4);
   const [busy, setBusy] = useState(false);
   const [results, setResults] = useState([]);
-  const [gallery, setGallery] = useState(SAMPLE_GALLERY);
+  const [gallery, setGallery] = useState([]);
+  const [engine, setEngine] = useState(null);
   const [toast, setToast] = useState(null);
+  const stopRef = useRef(false);
+
+  // Load persisted gallery (posters + small images only).
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(GALLERY_KEY) || '[]');
+      if (Array.isArray(stored)) setGallery(stored);
+    } catch { /* ignore */ }
+  }, []);
+
+  // Ask the server which real engines are available.
+  useEffect(() => {
+    fetch(apiUrl('/api/images/status'))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (data) setEngine(data); })
+      .catch(() => setEngine(null));
+  }, []);
+
+  const persistGallery = (list) => {
+    setGallery(list);
+    try {
+      localStorage.setItem(GALLERY_KEY, JSON.stringify(list.filter((it) => (it.image || '').length <= PERSIST_MAX_BYTES)));
+    } catch { /* quota exceeded — keep session copy */ }
+  };
 
   const showToast = (msg) => {
     setToast(msg);
     window.clearTimeout(showToast._t);
-    showToast._t = window.setTimeout(() => setToast(null), 2000);
+    showToast._t = window.setTimeout(() => setToast(null), 2400);
   };
 
-  const handleGenerate = () => {
-    if (!prompt.trim()) { showToast('Hãy nhập prompt trước'); return; }
-    setBusy(true);
-    setResults([]);
-    // Simulate generation: produce `batch` placeholder results then fill them.
-    const placeholders = Array.from({ length: batch }, (_, i) => ({
-      id: `gen-${Date.now()}-${i}`,
-      seed: `gen${Date.now()}${i}`,
-      prompt,
-      style,
-      ratio,
-      loading: true,
-    }));
-    setResults(placeholders);
-    setTimeout(() => {
-      setResults((prev) => prev.map((r) => ({ ...r, loading: false })));
-      setBusy(false);
-      showToast('Đã tạo ' + batch + ' ảnh');
-    }, 1500);
+  const generateOne = async (fullPrompt, ratioId) => {
+    const response = await fetch(apiUrl('/api/images/generate'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: fullPrompt, ratio: ratioId }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.message || data.error || `HTTP ${response.status}`);
+    return data;
   };
+
+  const handleGenerate = async () => {
+    if (!prompt.trim()) { showToast(T.needPrompt); return; }
+    stopRef.current = false;
+    setBusy(true);
+    const styleObj = STYLES.find((s) => s.id === style) || STYLES[0];
+    const fullPrompt = `${prompt.trim()}, ${styleObj.suffix}`;
+    const ids = Array.from({ length: batch }, (_, i) => `gen-${Date.now()}-${i}`);
+    setResults(ids.map((id) => ({
+      id, prompt: prompt.trim(), style, ratio, loading: true, image: null, provider: null, elapsedMs: null,
+    })));
+    let okCount = 0;
+    for (let i = 0; i < ids.length; i += 1) {
+      if (stopRef.current) break;
+      try {
+        const data = await generateOne(fullPrompt, ratio);
+        setResults((prev) => prev.map((r) => (r.id === ids[i] ? { ...r, loading: false, image: data.image, provider: data.provider, elapsedMs: data.elapsedMs } : r)));
+        okCount += 1;
+      } catch (error) {
+        setResults((prev) => prev.map((r) => (r.id === ids[i] ? { ...r, loading: false, error: error.message } : r)));
+      }
+    }
+    setBusy(false);
+    if (stopRef.current) showToast(T.cancelled);
+    else if (okCount > 0) showToast(`${T.doneMsg} (${okCount}/${batch})`);
+    else showToast(T.failedMsg);
+  };
+
+  const handleStop = () => { stopRef.current = true; };
 
   const handleSave = (r) => {
-    const next = [{ id: r.id, seed: r.seed, prompt: r.prompt, style: r.style, ratio: r.ratio, liked: false }, ...gallery];
-    setGallery(next);
-    showToast('Đã lưu vào thư viện');
+    persistGallery([{ id: r.id, image: r.image, prompt: r.prompt, style: r.style, ratio: r.ratio, provider: r.provider, liked: false }, ...gallery]);
+    showToast(T.save);
   };
 
   const handleToggleLike = (id) => {
-    setGallery((g) => g.map((it) => (it.id === id ? { ...it, liked: !it.liked } : it)));
+    persistGallery(gallery.map((it) => (it.id === id ? { ...it, liked: !it.liked } : it)));
   };
 
   const handleDelete = (id) => {
-    setGallery((g) => g.filter((it) => it.id !== id));
-    showToast('Đã xoá');
+    persistGallery(gallery.filter((it) => it.id !== id));
+    showToast(T.del);
   };
 
   const handleIdea = () => {
-    const idea = IDEA_PROMPTS[Math.floor(Math.random() * IDEA_PROMPTS.length)];
-    setPrompt(idea);
+    setPrompt(IDEA_PROMPTS[Math.floor(Math.random() * IDEA_PROMPTS.length)]);
+  };
+
+  const download = (item) => {
+    const a = document.createElement('a');
+    a.href = item.image;
+    a.download = `ai-social-${item.id}.${(item.image || '').startsWith('data:image/svg') ? 'svg' : 'png'}`;
+    a.click();
   };
 
   const aspectStyle = (r) => {
@@ -106,15 +216,27 @@ const CreateImage = () => {
     return { aspectRatio: `${rt.w} / ${rt.h}` };
   };
 
+  const engineText = !engine
+    ? (lang === 'vi' ? 'Đang kiểm tra engine ảnh trên server…' : 'Checking image engines on the server…')
+    : engine.comfyui?.available ? T.engineComfy : engine.comfyui ? T.engineHorde : T.enginePoster;
+
   return (
     <div className="ci-page">
+      <div className="ci-engine-banner">
+        <FontAwesomeIcon icon={faServer} />
+        <div>
+          <strong>{T.engineTitle}:</strong> {engineText}
+          {engine && <small> · {T.notePersist}</small>}
+        </div>
+      </div>
+
       <div className="ci-layout">
         {/* Left: prompt panel */}
         <aside className="ci-prompt-panel">
           <div className="ci-prompt-head">
-            <span className="eyebrow">TẠO ẢNH AI</span>
-            <h2>Mô tả ý tưởng</h2>
-            <p className="muted">Viết prompt bằng tiếng Việt hoặc tiếng Anh. AI sẽ tự sinh ảnh theo phong cách bạn chọn.</p>
+            <span className="eyebrow">{T.eyebrow}</span>
+            <h2>{T.heading}</h2>
+            <p className="muted">{T.sub}</p>
           </div>
 
           <label className="ci-label">Prompt</label>
@@ -126,39 +248,29 @@ const CreateImage = () => {
             placeholder="VD: Một chú mèo cam ngồi trên thềm nhà tại phố cổ Hà Nội, ánh nắng chiều vàng ấm..."
           />
           <button type="button" className="ci-idea-btn" onClick={handleIdea}>
-            <FontAwesomeIcon icon={faWandMagicSparkles} /> Gợi ý prompt
+            <FontAwesomeIcon icon={faWandMagicSparkles} /> {T.ideaBtn}
           </button>
 
-          <label className="ci-label">Phong cách</label>
+          <label className="ci-label">{T.styleLabel}</label>
           <div className="ci-chips">
             {STYLES.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                className={style === s.id ? 'active' : ''}
-                onClick={() => setStyle(s.id)}
-              >
-                {s.label}
+              <button key={s.id} type="button" className={style === s.id ? 'active' : ''} onClick={() => setStyle(s.id)}>
+                {lang === 'en' ? s.labelVi : s.labelVi}
               </button>
             ))}
           </div>
 
-          <label className="ci-label">Tỉ lệ khung hình</label>
+          <label className="ci-label">{T.ratioLabel}</label>
           <div className="ci-ratios">
             {RATIOS.map((r) => (
-              <button
-                key={r.id}
-                type="button"
-                className={ratio === r.id ? 'active' : ''}
-                onClick={() => setRatio(r.id)}
-              >
+              <button key={r.id} type="button" className={ratio === r.id ? 'active' : ''} onClick={() => setRatio(r.id)}>
                 <span style={{ aspectRatio: `${r.w}/${r.h}`, width: '14px', background: 'currentColor', opacity: .5, borderRadius: '2px' }} />
                 {r.label}
               </button>
             ))}
           </div>
 
-          <label className="ci-label">Số lượng: <strong>{batch}</strong></label>
+          <label className="ci-label">{T.batchLabel}: <strong>{batch}</strong></label>
           <input
             type="range"
             min="1"
@@ -166,37 +278,40 @@ const CreateImage = () => {
             value={batch}
             onChange={(e) => setBatch(Number(e.target.value))}
             className="ci-range"
+            disabled={busy}
           />
 
-          <button
-            type="button"
-            className="ci-gen-btn"
-            onClick={handleGenerate}
-            disabled={busy || !prompt.trim()}
-          >
-            {busy ? (
-              <><span className="spinner-border spinner-border-sm me-2" /> Đang tạo...</>
-            ) : (
-              <><FontAwesomeIcon icon={faImage} /> Tạo {batch} ảnh</>
-            )}
-          </button>
+          {busy ? (
+            <div className="ci-gen-actions">
+              <button type="button" className="ci-gen-btn" disabled>
+                <><span className="spinner-border spinner-border-sm me-2" /> {T.generating}</>
+              </button>
+              <button type="button" className="ci-stop-btn" onClick={handleStop}>
+                <FontAwesomeIcon icon={faXmark} /> {T.stopBtn}
+              </button>
+            </div>
+          ) : (
+            <button type="button" className="ci-gen-btn" onClick={handleGenerate} disabled={!prompt.trim()}>
+              <FontAwesomeIcon icon={faImage} /> {T.generate} ({batch})
+            </button>
+          )}
         </aside>
 
         {/* Right: results + gallery */}
         <section className="ci-results-panel">
           <div className="ci-results-section">
             <header className="ci-section-head">
-              <h3>Kết quả mới</h3>
-              {results.length > 0 && (
+              <h3>{T.resultsTitle}</h3>
+              {results.length > 0 && !busy && (
                 <button type="button" className="ci-ghost-btn" onClick={() => setResults([])}>
-                  <FontAwesomeIcon icon={faTrash} /> Xoá tất cả
+                  <FontAwesomeIcon icon={faTrash} /> {T.clearResults}
                 </button>
               )}
             </header>
             {results.length === 0 ? (
               <div className="ci-empty">
                 <FontAwesomeIcon icon={faImage} className="ci-empty-icon" />
-                <p>Nhập prompt và bấm <strong>Tạo ảnh</strong> để bắt đầu.</p>
+                <p>{T.emptyHint}</p>
               </div>
             ) : (
               <div className="ci-results-grid">
@@ -205,26 +320,25 @@ const CreateImage = () => {
                     {r.loading ? (
                       <div className="ci-result-loading">
                         <span className="spinner-border spinner-border-sm" />
-                        <small>Đang sinh...</small>
+                        <small>{r.provider ? '' : '…'}</small>
                       </div>
+                    ) : r.error ? (
+                      <div className="ci-result-error"><small>{r.error}</small></div>
                     ) : (
                       <>
-                        <img src={`https://picsum.photos/seed/${r.seed}/400/400`} alt={r.prompt} />
+                        <img src={r.image} alt={r.prompt} />
+                        {r.provider && (
+                          <span className={`ci-provider-badge p-${r.provider}`}>{T.provider[r.provider] || r.provider}{r.elapsedMs ? ` · ${(r.elapsedMs / 1000).toFixed(1)}s` : ''}</span>
+                        )}
                         <div className="ci-result-overlay">
                           <p>{r.prompt}</p>
                           <div className="ci-result-actions">
-                            <button type="button" onClick={() => handleSave(r)} title="Lưu vào thư viện">
+                            <button type="button" onClick={() => handleSave(r)} title={T.save}>
                               <FontAwesomeIcon icon={faLayerGroup} />
                             </button>
-                            <a
-                              href={`https://picsum.photos/seed/${r.seed}/800/800`}
-                              target="_blank"
-                              rel="noreferrer"
-                              download
-                              title="Tải xuống"
-                            >
+                            <button type="button" onClick={() => download(r)} title={T.download}>
                               <FontAwesomeIcon icon={faDownload} />
-                            </a>
+                            </button>
                           </div>
                         </div>
                       </>
@@ -237,41 +351,26 @@ const CreateImage = () => {
 
           <div className="ci-gallery-section">
             <header className="ci-section-head">
-              <h3>Thư viện ảnh đã lưu</h3>
-              <button type="button" className="ci-ghost-btn" onClick={() => showToast('Đã làm mới')}>
-                <FontAwesomeIcon icon={faArrowsRotate} /> Làm mới
-              </button>
+              <h3>{T.galleryTitle}</h3>
             </header>
             {gallery.length === 0 ? (
-              <div className="ci-empty">
-                <p>Chưa có ảnh nào được lưu.</p>
-              </div>
+              <div className="ci-empty"><p>{lang === 'vi' ? 'Chưa có ảnh nào được lưu.' : 'No saved images yet.'}</p></div>
             ) : (
               <div className="ci-gallery-grid">
                 {gallery.map((g) => (
                   <div key={g.id} className="ci-gallery-card" style={aspectStyle(g.ratio)}>
-                    <img src={`https://picsum.photos/seed/${g.seed}/300/300`} alt={g.prompt} loading="lazy" />
+                    <img src={g.image} alt={g.prompt} loading="lazy" />
+                    {g.provider && <span className={`ci-provider-badge p-${g.provider}`}>{T.provider[g.provider] || g.provider}</span>}
                     <div className="ci-gallery-overlay">
                       <p title={g.prompt}>{g.prompt}</p>
                       <div className="ci-gallery-actions">
-                        <button
-                          type="button"
-                          className={g.liked ? 'liked' : ''}
-                          onClick={() => handleToggleLike(g.id)}
-                          title="Yêu thích"
-                        >
+                        <button type="button" className={g.liked ? 'liked' : ''} onClick={() => handleToggleLike(g.id)} title={T.like}>
                           <FontAwesomeIcon icon={faHeart} />
                         </button>
-                        <a
-                          href={`https://picsum.photos/seed/${g.seed}/800/800`}
-                          target="_blank"
-                          rel="noreferrer"
-                          download
-                          title="Tải xuống"
-                        >
+                        <button type="button" onClick={() => download(g)} title={T.download}>
                           <FontAwesomeIcon icon={faDownload} />
-                        </a>
-                        <button type="button" onClick={() => handleDelete(g.id)} title="Xoá">
+                        </button>
+                        <button type="button" onClick={() => handleDelete(g.id)} title={T.del}>
                           <FontAwesomeIcon icon={faTrash} />
                         </button>
                       </div>
