@@ -30,11 +30,12 @@ const T = {
     signin: 'Đăng nhập',
     back: 'Về Tổng quan',
     freeIntro: 'Bạn đang dùng thử miễn phí ở chế độ khách. Tính năng này tiêu tốn nhiều tài nguyên AI hoặc liên quan đến tài khoản nên cần đăng nhập.',
-    benefitsTitle: 'Đăng nhập để mở khoá:',
+    benefitsTitle: 'Đăng nhập để mở khoá (4 bước wizard):',
     benefits: [
-      'Gợi ý ý tưởng nội dung bằng AI',
-      'Agent Builder viết bài nhiều bước tự động',
-      'Tạo ảnh & video AI từ prompt (tự động dịch tiếng Việt)',
+      'Gợi ý tạo prompt bằng AI (bước 1)',
+      'Tạo Agent từ ý tưởng — bám theo tài khoản suốt dự án (bước 2)',
+      'Tạo hình ảnh AI từ prompt và bài viết của agent (bước 3)',
+      'Tạo video từ ảnh đã tạo (bước 4)',
       'Kết nối tài khoản & lên lịch đăng bài',
     ],
     reasons: {
@@ -51,11 +52,12 @@ const T = {
     signin: 'Sign in',
     back: 'Back to Overview',
     freeIntro: 'You are trying the app for free as a guest. This feature uses heavy AI resources or touches your accounts, so it needs sign-in.',
-    benefitsTitle: 'Sign in to unlock:',
+    benefitsTitle: 'Sign in to unlock (4-step wizard):',
     benefits: [
-      'AI content idea suggestions',
-      'Agent Builder writes posts automatically, step by step',
-      'Create AI images & videos from prompts (auto-translated)',
+      'AI prompt suggestions (step 1)',
+      'Create an agent from the idea — sticks to your account for the whole project (step 2)',
+      'Create AI images from the prompt and the agent copy (step 3)',
+      'Create a video from the generated images (step 4)',
       'Connect accounts & schedule publishing',
     ],
     reasons: {

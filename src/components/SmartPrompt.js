@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faWandMagicSparkles,
@@ -10,7 +11,9 @@ import {
   faBullseye,
   faCalendar,
   faBolt,
+  faRobot,
 } from '@fortawesome/free-solid-svg-icons';
+import { useLang } from '../lib/i18n';
 
 // Idea categories — each has a list of templates the assistant picks from.
 const CATEGORIES = [
@@ -71,6 +74,8 @@ const PROMPT_TEMPLATES = [
 ];
 
 const SmartPrompt = () => {
+  const navigate = useNavigate();
+  const [lang] = useLang();
   const [activeCat, setActiveCat] = useState('trending');
   const [ideas, setIdeas] = useState(IDEAS.trending);
   const [business, setBusiness] = useState('');
@@ -116,6 +121,21 @@ const SmartPrompt = () => {
   const copyPrompt = () => {
     if (!generatedPrompt) return;
     navigator.clipboard?.writeText(generatedPrompt).then(() => showToast('Đã sao chép vào clipboard'));
+  };
+
+  // Wizard step 2 handoff: carry the crafted prompt into the Agent Builder.
+  // The agent will follow the project account for the whole project, so we
+  // pass the prompt (idea) and the industry along via sessionStorage.
+  const sendToAgent = () => {
+    if (!generatedPrompt) return;
+    try {
+      sessionStorage.setItem('aiSocialIdeaHandoff', JSON.stringify({
+        prompt: generatedPrompt,
+        business: business.trim(),
+        ts: Date.now(),
+      }));
+    } catch { /* private mode */ }
+    navigate('/prompts');
   };
 
   const surprise = () => {
@@ -236,6 +256,15 @@ const SmartPrompt = () => {
               {busy ? <><span className="spinner-border spinner-border-sm me-2" /> Đang gửi...</> : <><FontAwesomeIcon icon={faWandMagicSparkles} /> Mở trong Prompt Studio</>}
             </button>
           </div>
+          <button
+            type="button"
+            className="sp-agent-btn"
+            onClick={sendToAgent}
+            disabled={!generatedPrompt}
+            title={lang === 'vi' ? 'Bước 2: tạo agent bám theo tài khoản suốt dự án' : 'Step 2: create an agent that follows your account for the whole project'}
+          >
+            <FontAwesomeIcon icon={faRobot} /> Tạo Agent từ prompt này — bước 2 →
+          </button>
         </section>
       </div>
 

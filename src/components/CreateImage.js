@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faImage,
@@ -9,6 +10,9 @@ import {
   faLayerGroup,
   faServer,
   faXmark,
+  faVideo,
+  faRobot,
+  faClose,
 } from '@fortawesome/free-solid-svg-icons';
 import { useLang } from '../lib/i18n';
 import { apiUrl } from '../lib/api';
@@ -38,6 +42,17 @@ const IDEA_PROMPTS = [
 ];
 
 const GALLERY_KEY = 'aiSocialImageGallery';
+const IMAGE_HANDOFF_KEY = 'aiSocialImageHandoff';
+const VIDEO_HANDOFF_KEY = 'aiSocialVideoHandoff';
+
+// Handoff from wizard step 2 (Agent Builder): the image prompt comes from the
+// Smart Prompt idea (b1) and the agent's copy (b2) rides along as context.
+function readImageHandoff() {
+  try {
+    const raw = JSON.parse(sessionStorage.getItem(IMAGE_HANDOFF_KEY) || 'null');
+    return raw && typeof raw.prompt === 'string' ? raw : null;
+  } catch { return null; }
+}
 const PERSIST_MAX_BYTES = 250_000; // keep small items (posters) in localStorage; big AI PNGs stay for the session
 
 const STRINGS = {
@@ -106,6 +121,7 @@ const STRINGS = {
 };
 
 const CreateImage = () => {
+  const navigate = useNavigate();
   const [lang] = useLang();
   const T = STRINGS[lang];
   const [prompt, setPrompt] = useState('');
@@ -117,7 +133,36 @@ const CreateImage = () => {
   const [gallery, setGallery] = useState([]);
   const [engine, setEngine] = useState(null);
   const [toast, setToast] = useState(null);
+  const [agentContext, setAgentContext] = useState(() => readImageHandoff());
   const stopRef = useRef(false);
+
+  // Wizard handoff (b1 + b2 -> b3): prefill the image prompt with the Smart
+  // Prompt idea and keep the agent copy as visible context.
+  useEffect(() => {
+    if (agentContext?.prompt && !prompt.trim()) {
+      setPrompt(String(agentContext.prompt).slice(0, 900));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const dismissAgentContext = () => {
+    setAgentContext(null);
+    try { sessionStorage.removeItem(IMAGE_HANDOFF_KEY); } catch { /* ignore */ }
+  };
+
+  // Wizard step 4 handoff (b3 -> b4): take the image idea to the video builder.
+  const sendToVideo = () => {
+    const ideaSource = prompt.trim() || agentContext?.idea || '';
+    if (!ideaSource) return;
+    try {
+      sessionStorage.setItem(VIDEO_HANDOFF_KEY, JSON.stringify({
+        idea: ideaSource.slice(0, 400),
+        account: agentContext?.account || '',
+        ts: Date.now(),
+      }));
+    } catch { /* ignore */ }
+    navigate('/ai-library');
+  };
 
   // Load persisted gallery (posters + small images only).
   useEffect(() => {
@@ -233,6 +278,21 @@ const CreateImage = () => {
           {engine && <small> · {T.notePersist}</small>}
         </div>
       </div>
+
+      {agentContext && (
+        <div className="ci-handoff-bar">
+          <span className="ci-handoff-icon"><FontAwesomeIcon icon={faRobot} /></span>
+          <div className="ci-handoff-text">
+            <strong>{lang === 'vi' ? 'Từ bước 1 & 2 (wizard):' : 'From steps 1 & 2 (wizard):'}</strong>{' '}
+            {agentContext.idea ? <em>“{agentContext.idea.length > 90 ? `${agentContext.idea.slice(0, 90)}…` : agentContext.idea}”</em> : null}
+            {agentContext.account ? <span className="ci-handoff-account"> · {lang === 'vi' ? 'Tài khoản' : 'Account'}: {agentContext.account}</span> : null}
+            {agentContext.content ? <small> · {lang === 'vi' ? 'Bài viết của agent' : 'Agent copy'}: {agentContext.content.slice(0, 140)}…</small> : null}
+          </div>
+          <button type="button" className="ci-handoff-close" onClick={dismissAgentContext} aria-label={lang === 'vi' ? 'Bỏ ngữ cảnh' : 'Dismiss context'}>
+            <FontAwesomeIcon icon={faClose} />
+          </button>
+        </div>
+      )}
 
       <div className="ci-layout">
         {/* Left: prompt panel */}
@@ -356,6 +416,11 @@ const CreateImage = () => {
           <div className="ci-gallery-section">
             <header className="ci-section-head">
               <h3>{T.galleryTitle}</h3>
+              {gallery.length > 0 && (
+                <button type="button" className="ci-to-video-btn" onClick={sendToVideo} disabled={!prompt.trim() && !agentContext?.idea} title={lang === 'vi' ? 'Bước 4: tạo video từ ảnh đã tạo' : 'Step 4: create a video from the generated images'}>
+                  <FontAwesomeIcon icon={faVideo} /> {lang === 'vi' ? 'Tạo video từ ảnh này — bước 4 →' : 'Create video from these images — step 4 →'}
+                </button>
+              )}
             </header>
             {gallery.length === 0 ? (
               <div className="ci-empty"><p>{lang === 'vi' ? 'Chưa có ảnh nào được lưu.' : 'No saved images yet.'}</p></div>

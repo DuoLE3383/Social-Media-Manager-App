@@ -299,6 +299,19 @@ const AILibrary = forwardRef(({ user }, ref) => {
     } catch { /* ignore */ }
   }, [items]);
 
+  // Wizard step 4 handoff (b3 -> b4): arriving from Create Image pre-fills the
+  // idea (the same prompt behind the generated images) and opens the builder.
+  useEffect(() => {
+    try {
+      const raw = JSON.parse(sessionStorage.getItem('aiSocialVideoHandoff') || 'null');
+      if (raw && typeof raw.idea === 'string' && raw.idea.trim()) {
+        setIdea(String(raw.idea).slice(0, 400));
+        setModalOpen(true);
+        setStage('input');
+      }
+    } catch { /* ignore */ }
+  }, []);
+
   const showToast = (msg) => {
     setToast(msg);
     window.clearTimeout(showToast._t);

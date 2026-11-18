@@ -1,4 +1,5 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faRobot,
@@ -22,6 +23,9 @@ import {
   faSliders,
   faArrowLeft,
   faArrowRight,
+  faImage,
+  faUser,
+  faXmark,
 } from '@fortawesome/free-solid-svg-icons';
 import { useLang } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
@@ -29,6 +33,18 @@ import { usePromptRunner } from '../hooks/usePromptRunner';
 import PromptStudio from './PromptStudio';
 
 const AGENTS_KEY = 'aiSocialAgents';
+const PROJECT_ACCOUNT_KEY = 'aiSocialProjectAccount';
+const IDEA_HANDOFF_KEY = 'aiSocialIdeaHandoff';
+
+// Project context handed over from Smart Prompt (wizard step 1 -> step 2).
+// Kept in sessionStorage so the agent "sticks" to the account/idea for the
+// whole project — reloads and route changes keep it until explicitly cleared.
+function readIdeaHandoff() {
+  try {
+    const raw = JSON.parse(sessionStorage.getItem(IDEA_HANDOFF_KEY) || 'null');
+    return raw && typeof raw.prompt === 'string' ? raw : null;
+  } catch { return null; }
+}
 
 // Preset agents — each step is a real LLM call. Variables:
 //   {{input}} = what the user types before running
@@ -131,6 +147,7 @@ const LANG_STRINGS = {
     stepPromptPlaceholder: 'Nội dung prompt của bước này…\nDùng {{input}} cho đề bài và {{prev}} cho kết quả bước trước.',
     varInput: 'đề bài',
     varPrev: 'kết quả bước trước',
+    varAccount: 'tài khoản',
     noVarsWarn: 'Bước này chưa dùng {{input}} hoặc {{prev}} — model sẽ thiếu ngữ cảnh.',
     stepNeedsPrompt: 'Bước {n} chưa có nội dung prompt.',
     // Step 3 — run
@@ -180,6 +197,13 @@ const LANG_STRINGS = {
     selectHint: 'Chọn một agent ở bên trái, nhập đề bài rồi bấm Chạy agent.',
     stepsUnit: 'bước',
     offlineNote: 'Cần API server đang chạy để agent hoạt động (xem trạng thái ở tab Prompt nhanh).',
+    projectLabel: 'Dự án',
+    projectAccountPh: 'Tên tài khoản / thương hiệu…',
+    projectNote: 'Agent bám theo tài khoản này suốt dự án — mọi bước đều nhận ngữ cảnh này.',
+    fromSmartPrompt: 'Từ Smart Prompt (bước 1)',
+    clearContext: 'Xoá ngữ cảnh dự án',
+    toImageBtn: 'Tạo ảnh minh họa — bước 3 →',
+    toImageTitle: 'Đưa prompt (b1) và bài viết của agent (b2) sang Tạo Ảnh',
   },
   en: {
     tabs: { agent: 'Agent Builder', quick: 'Quick prompt' },
@@ -244,6 +268,13 @@ const LANG_STRINGS = {
     selectHint: 'Pick an agent on the left, type the task, then press Run agent.',
     stepsUnit: 'steps',
     offlineNote: 'The API server must be running for agents to work (see status in the Quick prompt tab).',
+    projectLabel: 'Project',
+    projectAccountPh: 'Account / brand name…',
+    projectNote: 'The agent follows this account for the whole project — every step receives this context.',
+    fromSmartPrompt: 'From Smart Prompt (step 1)',
+    clearContext: 'Clear project context',
+    toImageBtn: 'Create images — step 3 →',
+    toImageTitle: 'Send the prompt (S1) and the agent copy (S2) to Create Image',
   },
 };
 
@@ -258,11 +289,13 @@ function fillTemplate(template, vars) {
   return String(template || '')
     .split('{{input}}').join(vars.input)
     .split('{{prev}}').join(vars.prev)
-    .split('{{agent}}').join(vars.agentName || '');
+    .split('{{agent}}').join(vars.agentName || '')
+    .split('{{account}}').join(vars.account || '');
 }
 
 const AgentStudio = ({ user }) => {
   const [lang] = useLang();
+  const navigate = useNavigate();
   const T = LANG_STRINGS[lang];
   const [tab, setTab] = useState('agent');
   const [mode, setMode] = useState('wizard'); // 'wizard' (default) | 'advanced'
@@ -284,6 +317,44 @@ const AgentStudio = ({ user }) => {
   const cancelledRef = useRef(false);
   const importRef = useRef(null);
 
+  // Project context (wizard step 1 handoff + account binding). The agent
+  // "bám theo tài khoản suốt dự án": every LLM step receives this context,
+  // it survives agent switches and page reloads until explicitly cleared.
+  const [accountName, setAccountName] = useState(() => {
+    try { return localStorage.getItem(PROJECT_ACCOUNT_KEY) || ''; } catch { return ''; }
+  });
+  const [projectIdea, setProjectIdea] = useState(() => {
+    const handoff = readIdeaHandoff();
+    return handoff ? String(handoff.prompt).slice(0, 400) : '';
+  });
+  const handoffRef = useRef(readIdeaHandoff());
+
+  useEffect(() => {
+    try { localStorage.setItem(PROJECT_ACCOUNT_KEY, accountName.trim()); } catch { /* ignore */ }
+  }, [accountName]);
+
+  const clearProjectContext = () => {
+    setProjectIdea('');
+    setAccountName('');
+    handoffRef.current = null;
+    try { sessionStorage.removeItem(IDEA_HANDOFF_KEY); localStorage.removeItem(PROJECT_ACCOUNT_KEY); } catch { /* ignore */ }
+  };
+
+  // Wizard step 3 handoff: send the prompt (b1) + agent copy (b2) to Create Image.
+  const sendToImage = () => {
+    const lastDone = [...stepStates].reverse().find((s) => s.status === 'done' && s.text);
+    try {
+      sessionStorage.setItem('aiSocialImageHandoff', JSON.stringify({
+        prompt: input.trim() || projectIdea.trim(),
+        idea: projectIdea.trim(),
+        account: accountName.trim(),
+        content: lastDone ? String(lastDone.text).slice(0, 1200) : '',
+        ts: Date.now(),
+      }));
+    } catch { /* ignore */ }
+    navigate('/create-image');
+  };
+
   const showToast = (msg) => {
     setToast(msg);
     window.clearTimeout(showToast._t);
@@ -302,6 +373,9 @@ const AgentStudio = ({ user }) => {
     setStepStates([]);
     setTotalMs(0);
     setNotice('');
+    // Restore the saved project binding if the session has no context yet.
+    if (!accountName.trim() && agent.account) setAccountName(String(agent.account).slice(0, 80));
+    if (!projectIdea.trim() && agent.idea) setProjectIdea(String(agent.idea).slice(0, 400));
   };
 
   const startBlank = () => {
@@ -362,6 +436,8 @@ const AgentStudio = ({ user }) => {
       name: draft.name.trim(),
       desc: draft.desc || '',
       language: draft.language || 'vi',
+      account: accountName.trim(),
+      idea: projectIdea.trim(),
       steps: draft.steps.map((s) => ({ title: s.title || '', prompt: s.prompt || '' })),
     };
     const exists = userAgents.some((a) => a.id === clean.id);
@@ -417,10 +493,23 @@ const AgentStudio = ({ user }) => {
   };
 
   const buildSystem = () => {
-    if ((draft.language || 'vi') === 'en') {
-      return 'You are a senior social media content strategist. Follow the task exactly. Be concise and concrete. Plain text only, no markdown headings.';
+    const base = (draft.language || 'vi') === 'en'
+      ? 'You are a senior social media content strategist. Follow the task exactly. Be concise and concrete. Plain text only, no markdown headings.'
+      : 'Bạn là chuyên gia content marketing mạng xã hội. Thực hiện đúng yêu cầu. Trả lời NGẮN GỌN, cụ thể, bằng tiếng Việt. Chỉ dùng văn bản thuần, không markdown.';
+    // Project binding: the agent follows the account + original idea (b1)
+    // in EVERY step, so all outputs stay on-brand for the whole project.
+    const ctx = [];
+    if (accountName.trim()) {
+      ctx.push((draft.language || 'vi') === 'en'
+        ? `Project account/brand you always work for: "${accountName.trim()}"`
+        : `Tài khoản/thương hiệu dự án mà agent bám theo suốt: "${accountName.trim()}"`);
     }
-    return 'Bạn là chuyên gia content marketing mạng xã hội. Thực hiện đúng yêu cầu. Trả lời NGẮN GỌN, cụ thể, bằng tiếng Việt. Chỉ dùng văn bản thuần, không markdown.';
+    if (projectIdea.trim()) {
+      ctx.push((draft.language || 'vi') === 'en'
+        ? `Original idea from step 1: "${projectIdea.trim()}"`
+        : `Ý tưởng gốc từ bước 1 (Smart Prompt): "${projectIdea.trim()}"`);
+    }
+    return ctx.length ? `${base}\n\n${ctx.join('\n')}` : base;
   };
 
   const getAuthHeaders = async () => {
@@ -455,7 +544,7 @@ const AgentStudio = ({ user }) => {
         try {
           const data = await runner.run({
             headers,
-            body: { prompt: fillTemplate(step.prompt, { input: input.trim(), prev, agentName: draft.name }), system: buildSystem(), tier: 'default' },
+            body: { prompt: fillTemplate(step.prompt, { input: input.trim(), prev, agentName: draft.name, account: accountName.trim() }), system: buildSystem(), tier: 'default' },
           });
           states[i] = { status: 'done', text: data.text || '(không có kết quả)', ms: Date.now() - stepStart };
           prev = states[i].text;
@@ -495,7 +584,7 @@ const AgentStudio = ({ user }) => {
     try {
       const data = await runner.run({
         headers: await getAuthHeaders(),
-        body: { prompt: fillTemplate(draft.steps[index].prompt, { input: input.trim(), prev, agentName: draft.name }), system: buildSystem(), tier: 'default' },
+        body: { prompt: fillTemplate(draft.steps[index].prompt, { input: input.trim(), prev, agentName: draft.name, account: accountName.trim() }), system: buildSystem(), tier: 'default' },
       });
       const next = [...states];
       next[index] = { status: 'done', text: data.text || '(không có kết quả)', ms: Date.now() - stepStart };
@@ -668,6 +757,7 @@ const AgentStudio = ({ user }) => {
             <div className="as-var-chips">
               <button type="button" onClick={() => updateStep(i, { prompt: `${step.prompt}{{input}}` })}>{'{'}{T.varInput}{'}'}</button>
               <button type="button" onClick={() => updateStep(i, { prompt: `${step.prompt}{{prev}}` })}>{'{'}{T.varPrev}{'}'}</button>
+              {accountName.trim() && <button type="button" onClick={() => updateStep(i, { prompt: `${step.prompt}{{account}}` })}>{'{'}{T.varAccount}{'}'}</button>}
               {stepIssues[i]?.noVars && !stepIssues[i]?.empty && <span className="as-var-warn">{T.noVarsWarn}</span>}
             </div>
           </div>
@@ -730,6 +820,11 @@ const AgentStudio = ({ user }) => {
         ))}
       </div>
       <p className="as-offline-note">{T.offlineNote}</p>
+      {!running && stepStates.some((s) => s.status === 'done') && (
+        <button type="button" className="as-primary-btn as-to-image-btn" onClick={sendToImage} title={T.toImageTitle}>
+          <FontAwesomeIcon icon={faImage} /> {T.toImageBtn}
+        </button>
+      )}
     </div>
   );
 
@@ -753,6 +848,12 @@ const AgentStudio = ({ user }) => {
         <span className="as-chip">{draft.emoji} {draft.name}</span>
         <span className="as-chip">{draft.steps.length} {T.stepsUnit}</span>
         <span className="as-chip">{(draft.language || 'vi') === 'vi' ? 'Tiếng Việt' : 'English'}</span>
+        {accountName.trim() && <span className="as-chip"><FontAwesomeIcon icon={faUser} /> {accountName.trim()}</span>}
+      </div>
+      <div className="as-done-actions">
+        <button type="button" className="as-primary-btn" onClick={sendToImage} title={T.toImageTitle}>
+          <FontAwesomeIcon icon={faImage} /> {T.toImageBtn}
+        </button>
       </div>
       <div className="as-done-actions">
         <button type="button" className="as-ghost-btn" onClick={() => copyText(transcript)} disabled={!transcript}>
@@ -805,6 +906,29 @@ const AgentStudio = ({ user }) => {
       ) : mode === 'wizard' ? (
         <>
           <div className="as-wiz-card">
+            {/* Persistent project context bar — the agent follows this account
+                and idea across every wizard step and every run. */}
+            {(projectIdea || accountName) && (
+              <div className="as-project-bar">
+                <span className="as-project-badge"><FontAwesomeIcon icon={faUser} /> {T.projectLabel}</span>
+                <input
+                  className="as-project-input"
+                  value={accountName}
+                  onChange={(e) => setAccountName(e.target.value.slice(0, 80))}
+                  placeholder={T.projectAccountPh}
+                  aria-label={T.projectLabel}
+                />
+                {projectIdea && (
+                  <span className="as-project-idea" title={projectIdea}>
+                    <FontAwesomeIcon icon={faWandMagicSparkles} /> {T.fromSmartPrompt}: {projectIdea.length > 60 ? `${projectIdea.slice(0, 60)}…` : projectIdea}
+                  </span>
+                )}
+                <button type="button" className="as-project-clear" onClick={clearProjectContext} title={T.clearContext}>
+                  <FontAwesomeIcon icon={faXmark} />
+                </button>
+              </div>
+            )}
+            <p className="as-project-note">{T.projectNote}</p>
             <div className="as-wiz-rail" role="tablist" aria-label="Wizard steps">
               {WIZ_STEPS.map((step, i) => (
                 <button

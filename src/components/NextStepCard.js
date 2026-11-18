@@ -12,36 +12,37 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { useLang } from '../lib/i18n';
 
-// The app-wide guided flow (wizard). Every page ends with a NextStepCard that
-// suggests — and links to — the following stage of the content pipeline:
-//   1. Smart Prompt (ideas) -> 2. Agent Builder (write) -> 3. Create Image ->
-//   4. AI Library (video)  -> 5. Publish Plan -> 6. Reports -> back to 1.
+// The app-wide guided wizard, exactly 4 creation steps as defined by the owner:
+//   1. Smart Prompt (prompt ideas) -> 2. Agent Builder (agent from the idea,
+//   follows the project account) -> 3. Create Image (from steps 1 & 2) ->
+//   4. AI Library video (from step 3 images). After step 4 the flow hands off
+//   to publishing (unnumbered), and Reports loops back to step 1.
 const STEPS = {
-  smartPrompt: { to: '/smart-prompt', icon: faWandMagicSparkles, step: 1, label: { vi: 'Gợi ý thông minh', en: 'Smart Prompt' } },
-  agents: { to: '/prompts', icon: faRobot, step: 2, label: { vi: 'Agent Builder', en: 'Agent Builder' } },
-  createImage: { to: '/create-image', icon: faImage, step: 3, label: { vi: 'Tạo Ảnh', en: 'Create Image' } },
-  library: { to: '/ai-library', icon: faVideo, step: 4, label: { vi: 'Thư viện AI', en: 'AI Library' } },
-  publish: { to: '/publish-plan', icon: faCalendarDays, step: 5, label: { vi: 'Lịch đăng', en: 'Publish Plan' } },
-  reports: { to: '/reports', icon: faChartLine, step: 6, label: { vi: 'Báo cáo', en: 'Reports' } },
+  smartPrompt: { to: '/smart-prompt', icon: faWandMagicSparkles, step: 1, label: { vi: 'Gợi ý tạo prompt', en: 'Prompt ideas' } },
+  agents: { to: '/prompts', icon: faRobot, step: 2, label: { vi: 'Tạo Agent', en: 'Create Agent' } },
+  createImage: { to: '/create-image', icon: faImage, step: 3, label: { vi: 'Tạo hình ảnh', en: 'Create images' } },
+  library: { to: '/ai-library', icon: faVideo, step: 4, label: { vi: 'Tạo video', en: 'Create video' } },
+  publish: { to: '/publish-plan', icon: faCalendarDays, step: null, label: { vi: 'Lịch đăng', en: 'Publish Plan' } },
+  reports: { to: '/reports', icon: faChartLine, step: null, label: { vi: 'Báo cáo', en: 'Reports' } },
 };
 
 // Per-transition suggestion copy, keyed by "<current path>-><next path>".
 const SUGGESTIONS = {
   '/smart-prompt->/prompts': {
-    vi: 'Đã có ý tưởng? Đưa ý tưởng vào Agent Builder để AI viết bài hoàn chỉnh theo từng bước.',
-    en: 'Got an idea? Feed it into Agent Builder and let AI write the full post step by step.',
+    vi: 'Đã có prompt (bước 1)? Tạo agent từ ý tưởng này — agent sẽ bám theo tài khoản suốt dự án.',
+    en: 'Got the prompt (step 1)? Build an agent from it — the agent sticks to your account for the whole project.',
   },
   '/prompts->/create-image': {
-    vi: 'Bài viết đã xong? Tạo ảnh minh họa đúng chủ đề để bài đăng nổi bật hơn.',
-    en: 'Post ready? Create on-topic AI images to make it stand out.',
+    vi: 'Agent đã chạy xong (bước 2)? Tạo ảnh minh họa từ prompt (b1) và bài viết của agent (b2).',
+    en: 'Agent run done (step 2)? Create images from the prompt (S1) and the agent copy (S2).',
   },
   '/create-image->/ai-library': {
-    vi: 'Đã có ảnh? Ghép các ảnh thành video slideshow kèm chuyển cảnh mượt.',
-    en: 'Have images? Stitch them into a slideshow video with smooth transitions.',
+    vi: 'Đã có ảnh (bước 3)? Ghép thành video (bước 4) với chuyển cảnh mượt.',
+    en: 'Images ready (step 3)? Stitch them into a video (step 4) with smooth transitions.',
   },
   '/ai-library->/publish-plan': {
-    vi: 'Nội dung đã đủ? Lên lịch đăng để phát hành đều đặn trên các kênh.',
-    en: 'Content ready? Schedule it for consistent publishing across channels.',
+    vi: 'Hoàn tất 4 bước! Đưa ảnh/video lên lịch đăng để phát hành đều đặn.',
+    en: 'All 4 steps done! Schedule your images and videos for consistent publishing.',
   },
   '/feed->/publish-plan': {
     vi: 'Đã duyệt bài? Đưa bài vào lịch đăng để phát hành đúng giờ.',
@@ -52,8 +53,8 @@ const SUGGESTIONS = {
     en: 'Scheduled? Track engagement and reach in Reports.',
   },
   '/reports->/smart-prompt': {
-    vi: 'Vòng nội dung mới: dùng chủ đề đang hiệu quả để lấy ý tưởng cho chu kỳ tiếp theo.',
-    en: 'New cycle: turn what worked into fresh ideas for the next round.',
+    vi: 'Bắt đầu vòng mới từ bước 1: gợi ý prompt cho chủ đề tiếp theo.',
+    en: 'Start a new cycle at step 1: prompt ideas for the next topic.',
   },
 };
 
@@ -83,7 +84,7 @@ export default function NextStepCard({ next }) {
         <div className="nsc-title-row">
           <strong className="nsc-title">{target.label[lang] || target.label.vi}</strong>
           {target.step && (
-            <span className="nsc-step-badge">{t.stepOf} {target.step}{t.of}6</span>
+            <span className="nsc-step-badge">{t.stepOf} {target.step}{t.of}4</span>
           )}
         </div>
         <p className="nsc-suggestion">{sug[lang] || sug.vi}</p>
