@@ -17,10 +17,22 @@ import DataDeletion from './components/DataDeletion';
 import AILibrary from './components/AILibrary';
 import AppShell from './components/AppShell';
 import LoginRequired from './components/LoginRequired';
+import NextStepCard from './components/NextStepCard';
 
 // Pseudo user shown to signed-out visitors so sample-data pages greet them
 // properly ("Xin chào, Khách") instead of falling back to English "User".
 const GUEST_USER = { id: 'guest', name: 'Khách', email: '', picture: '' };
+
+// Renders a page followed by its "next step" card so the whole app works as a
+// guided wizard: every stage suggests — and links to — the next one.
+function WithNext({ next, children }) {
+  return (
+    <>
+      {children}
+      <NextStepCard next={next} />
+    </>
+  );
+}
 
 // After a successful sign-in, send the user back to the page that asked for
 // the login (?next=/create-image) or to the Overview dashboard.
@@ -100,15 +112,17 @@ function App() {
                 {/* Free trial pages: light, sample data, no sign-in needed. */}
                 <Route path="/dashboard" element={<Overview user={user || GUEST_USER} />} />
                 <Route path="/overview" element={<Overview user={user || GUEST_USER} />} />
-                <Route path="/feed" element={<Feed user={user || GUEST_USER} />} />
-                <Route path="/reports" element={<Reports user={user || GUEST_USER} />} />
-                {/* Resource-heavy AI pages: require sign-in. */}
-                <Route path="/prompts" element={isAuthenticated ? <AgentStudio user={user} /> : <LoginRequired page="agents" />} />
-                <Route path="/smart-prompt" element={isAuthenticated ? <SmartPrompt user={user} /> : <LoginRequired page="smartPrompt" />} />
-                <Route path="/create-image" element={isAuthenticated ? <CreateImage user={user} /> : <LoginRequired page="createImage" />} />
-                <Route path="/ai-library" element={isAuthenticated ? <AILibrary user={user} /> : <LoginRequired page="library" />} />
+                <Route path="/feed" element={<WithNext next="publish"><Feed user={user || GUEST_USER} /></WithNext>} />
+                <Route path="/reports" element={<WithNext next="smartPrompt"><Reports user={user || GUEST_USER} /></WithNext>} />
+                {/* Resource-heavy AI pages: require sign-in. Each page ends with
+                    its next-step suggestion, forming the guided wizard chain:
+                    ideas -> write -> image -> video -> schedule -> measure. */}
+                <Route path="/prompts" element={isAuthenticated ? <WithNext next="createImage"><AgentStudio user={user} /></WithNext> : <LoginRequired page="agents" />} />
+                <Route path="/smart-prompt" element={isAuthenticated ? <WithNext next="agents"><SmartPrompt user={user} /></WithNext> : <LoginRequired page="smartPrompt" />} />
+                <Route path="/create-image" element={isAuthenticated ? <WithNext next="library"><CreateImage user={user} /></WithNext> : <LoginRequired page="createImage" />} />
+                <Route path="/ai-library" element={isAuthenticated ? <WithNext next="publish"><AILibrary user={user} /></WithNext> : <LoginRequired page="library" />} />
                 {/* Account-related pages: require sign-in. */}
-                <Route path="/publish-plan" element={isAuthenticated ? <PublishPlan user={user} /> : <LoginRequired page="publish" />} />
+                <Route path="/publish-plan" element={isAuthenticated ? <WithNext next="reports"><PublishPlan user={user} /></WithNext> : <LoginRequired page="publish" />} />
                 <Route path="/settings" element={isAuthenticated ? <Connections user={user} /> : <LoginRequired page="accounts" />} />
                 <Route path="/profile" element={isAuthenticated ? <Profile user={user} /> : <LoginRequired page="accounts" />} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />

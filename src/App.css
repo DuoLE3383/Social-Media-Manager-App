@@ -1972,3 +1972,57 @@ html[data-theme="dark"] .gated-back:hover { color: #a5a0ff; }
 /* "Try without signing in" link on the login page */
 .login-try-link { color: #6f6c85; font-size: .85rem; text-decoration: none; }
 .login-try-link:hover { color: #5047a8; text-decoration: underline; }
+
+/* Numbered wizard steps in the sign-in interstitial */
+.gated-steps { list-style: none; margin: 0; padding: 0; counter-reset: gatedstep; }
+.gated-steps li {
+  display: flex; align-items: flex-start; gap: 10px;
+  font-size: .84rem; color: #555468; margin: 8px 0; line-height: 1.45;
+}
+.gated-step-no {
+  flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%;
+  background: #6158d9; color: #fff; font-size: .72rem; font-weight: 700;
+  display: grid; place-items: center; margin-top: 1px;
+}
+html[data-theme="dark"] .gated-steps li { color: #b5b3c8; }
+
+/* ---------- Next-step suggestion card (guided wizard) ---------- */
+.nsc-card {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  margin: 26px 0 8px; padding: 18px 20px;
+  background: linear-gradient(120deg, #f4f3ff 0%, #fff 55%);
+  border: 1px solid #e0ddf6; border-radius: 14px;
+}
+.nsc-icon {
+  flex: 0 0 auto; width: 46px; height: 46px; border-radius: 13px;
+  background: #6158d9; color: #fff; font-size: 1.05rem;
+  display: grid; place-items: center;
+  box-shadow: 0 8px 18px -8px #6158d9aa;
+}
+.nsc-body { flex: 1; min-width: 240px; }
+.nsc-eyebrow {
+  display: block; font-size: .68rem; font-weight: 800; letter-spacing: .08em;
+  color: #8a83e8; margin-bottom: 3px;
+}
+.nsc-title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.nsc-title { font-size: 1rem; font-weight: 750; letter-spacing: -.02em; color: #25243a; }
+.nsc-step-badge {
+  font-size: .68rem; font-weight: 700; color: #5047a8;
+  background: #eceaff; border: 1px solid #dbd7ff; border-radius: 999px;
+  padding: 3px 10px;
+}
+.nsc-suggestion { margin: 5px 0 0; font-size: .84rem; color: #6f6c85; line-height: 1.5; }
+.nsc-btn {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 8px;
+  background: #6158d9; color: #fff; border-radius: 10px;
+  padding: 11px 20px; font-size: .85rem; font-weight: 700; text-decoration: none;
+  transition: background .15s, transform .15s;
+}
+.nsc-btn:hover { background: #514cc4; color: #fff; text-decoration: none; transform: translateY(-1px); }
+.nsc-btn svg { font-size: .78rem; }
+html[data-theme="dark"] .nsc-card { background: linear-gradient(120deg, #26243a 0%, #1e1c2e 60%); border-color: #3a3760; }
+html[data-theme="dark"] .nsc-icon { background: #5047a8; box-shadow: 0 8px 18px -8px #00000088; }
+html[data-theme="dark"] .nsc-eyebrow { color: #a5a0ff; }
+html[data-theme="dark"] .nsc-title { color: #e8e7f0; }
+html[data-theme="dark"] .nsc-step-badge { background: #26243a; border-color: #4a4570; color: #a5a0ff; }
+html[data-theme="dark"] .nsc-suggestion { color: #a8a4c8; }

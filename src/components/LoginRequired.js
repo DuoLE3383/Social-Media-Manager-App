@@ -32,9 +32,9 @@ const T = {
     freeIntro: 'Bạn đang dùng thử miễn phí ở chế độ khách. Tính năng này tiêu tốn nhiều tài nguyên AI hoặc liên quan đến tài khoản nên cần đăng nhập.',
     benefitsTitle: 'Đăng nhập để mở khoá:',
     benefits: [
-      'Tạo ảnh & video AI từ prompt (tự động dịch tiếng Việt)',
-      'Agent Builder viết bài nhiều bước tự động',
       'Gợi ý ý tưởng nội dung bằng AI',
+      'Agent Builder viết bài nhiều bước tự động',
+      'Tạo ảnh & video AI từ prompt (tự động dịch tiếng Việt)',
       'Kết nối tài khoản & lên lịch đăng bài',
     ],
     reasons: {
@@ -53,9 +53,9 @@ const T = {
     freeIntro: 'You are trying the app for free as a guest. This feature uses heavy AI resources or touches your accounts, so it needs sign-in.',
     benefitsTitle: 'Sign in to unlock:',
     benefits: [
-      'Create AI images & videos from prompts (auto-translated)',
-      'Agent Builder writes posts automatically, step by step',
       'AI content idea suggestions',
+      'Agent Builder writes posts automatically, step by step',
+      'Create AI images & videos from prompts (auto-translated)',
       'Connect accounts & schedule publishing',
     ],
     reasons: {
@@ -85,7 +85,11 @@ export default function LoginRequired({ page = 'agents' }) {
         <p className="gated-intro">{t.freeIntro}</p>
         <div className="gated-benefits">
           <p className="gated-benefits-title">{t.benefitsTitle}</p>
-          <ul>{t.benefits.map((b, i) => <li key={i}>{b}</li>)}</ul>
+          <ol className="gated-steps">
+            {t.benefits.map((b, i) => (
+              <li key={i}><span className="gated-step-no">{i + 1}</span>{b}</li>
+            ))}
+          </ol>
         </div>
         <div className="gated-actions">
           <Link className="app-login-btn gated-login" to={`/login?next=${next}`}>
