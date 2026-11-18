@@ -1,18 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import Profile from './components/Profile';
-import Navbar from './components/Navbar';
 import PromptStudio from './components/PromptStudio';
 import { supabase } from './lib/supabase';
 import Connections from './components/Connections';
 import DataDeletion from './components/DataDeletion';
 import AILibrary from './components/AILibrary';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faMoon, faSun } from '@fortawesome/free-solid-svg-icons';
+import AppShell from './components/AppShell';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -22,6 +20,7 @@ function App() {
     return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
   const isAuthenticated = Boolean(user);
+  const libraryRef = useRef(null);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -62,69 +61,40 @@ function App() {
 
   return (
     <Router>
-      <AppBody
-        user={user}
-        isAuthenticated={isAuthenticated}
-        theme={theme}
-        onLogin={handleLogin}
-        onLogout={handleLogout}
-        onToggleTheme={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')}
-      />
+      <Routes>
+        <Route path="/privacy/data-deletion" element={<DataDeletion />} />
+        <Route
+          path="/login"
+          element={!isAuthenticated ? <Login onLogin={handleLogin} /> : <Navigate to="/prompts" />}
+        />
+        {/* All authenticated routes share the AppShell layout (left sidebar + topbar). */}
+        <Route
+          path="/*"
+          element={
+            isAuthenticated ? (
+              <AppShell
+                user={user}
+                theme={theme}
+                onToggleTheme={() => setTheme((c) => (c === 'dark' ? 'light' : 'dark'))}
+                onLogout={handleLogout}
+                onCreateVideo={() => libraryRef.current?.createVideo()}
+              >
+                <Routes>
+                  <Route path="/dashboard" element={<Dashboard user={user} />} />
+                  <Route path="/prompts" element={<PromptStudio user={user} />} />
+                  <Route path="/ai-library" element={<AILibrary ref={libraryRef} user={user} />} />
+                  <Route path="/settings" element={<Connections user={user} />} />
+                  <Route path="/profile" element={<Profile user={user} />} />
+                  <Route path="*" element={<Navigate to="/prompts" />} />
+                </Routes>
+              </AppShell>
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+      </Routes>
     </Router>
-  );
-}
-
-function AppBody({ user, isAuthenticated, theme, onLogin, onLogout, onToggleTheme }) {
-  const location = useLocation();
-  const isLibraryRoute = location.pathname.startsWith('/ai-library');
-  // AI Library renders its own full-screen sidebar layout; hide the global navbar there.
-  const showTopNavbar = isAuthenticated && !isLibraryRoute;
-  return (
-    <div className="App">
-      {showTopNavbar
-        ? <Navbar user={user} onLogout={onLogout} theme={theme} onToggleTheme={onToggleTheme} />
-        : <button className="theme-toggle floating-theme-toggle" type="button" onClick={onToggleTheme} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}><FontAwesomeIcon icon={theme === 'dark' ? faSun : faMoon} /></button>}
-      <div className={isLibraryRoute ? 'ai-page-host' : 'container-fluid'}>
-          <Routes>
-            <Route path="/privacy/data-deletion" element={<DataDeletion />} />
-            <Route 
-              path="/login" 
-              element={
-                !isAuthenticated ? 
-                <Login onLogin={onLogin} /> : 
-                <Navigate to="/prompts" />
-              } 
-            />
-            <Route 
-              path="/dashboard" 
-              element={
-                isAuthenticated ? 
-                <Dashboard user={user} /> : 
-                <Navigate to="/login" />
-              } 
-            />
-            <Route path="/prompts" element={isAuthenticated ? <PromptStudio user={user} /> : <Navigate to="/login" />} />
-            <Route path="/ai-library" element={isAuthenticated ? <AILibrary user={user} /> : <Navigate to="/login" />} />
-            <Route path="/settings" element={isAuthenticated ? <Connections user={user} /> : <Navigate to="/login" />} />
-            <Route 
-              path="/profile" 
-              element={
-                isAuthenticated ? 
-                <Profile user={user} /> : 
-                <Navigate to="/login" />
-              } 
-            />
-            <Route
-              path="/"
-              element={
-                isAuthenticated ?
-                <Navigate to="/prompts" /> :
-                <Navigate to="/login" />
-              }
-            />
-          </Routes>
-        </div>
-      </div>
   );
 }
 

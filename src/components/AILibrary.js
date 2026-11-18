@@ -1,5 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useMemo, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faArrowsRotate,
@@ -13,15 +12,6 @@ import {
   faTrash,
   faDownload,
   faShare,
-  faImage,
-  faWandMagicSparkles,
-  faBook,
-  faBoxesStacked,
-  faChartLine,
-  faCalendarDays,
-  faComments,
-  faNewspaper,
-  faUsers,
 } from '@fortawesome/free-solid-svg-icons';
 
 // Sample AI-generated video library items.
@@ -67,7 +57,7 @@ const sourceBadgeClass = (source) => {
   return 'source-badge source-direct';
 };
 
-const AILibrary = ({ user }) => {
+const AILibrary = forwardRef(({ user }, ref) => {
   const [items, setItems] = useState(SAMPLE_VIDEOS);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All');
@@ -143,6 +133,9 @@ const AILibrary = ({ user }) => {
     showToast('Video creation started — check back shortly');
   };
 
+  // Expose createVideo to the parent shell so the sidebar "Create Video" item can trigger it.
+  useImperativeHandle(ref, () => ({ createVideo: handleCreateVideo }));
+
   const toggleSelect = (id) => {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
@@ -173,223 +166,144 @@ const AILibrary = ({ user }) => {
   }, [items]);
 
   return (
-    <div className="ai-library-shell">
-      {/* Sidebar */}
-      <aside className="ai-sidebar">
-        <div className="ai-sidebar-brand">
-          <Link to="/prompts" className="ai-brand-link">
-            <span className="ai-brand-mark">✦</span>
-            <span className="ai-brand-text">Social Studio</span>
-          </Link>
+    <div className="ai-library-page">
+      {/* Page-specific toolbar */}
+      <div className="ai-toolbar">
+        <div className="ai-toolbar-left">
+          <button className="ai-icon-btn" type="button" onClick={handleRefresh} title="Refresh" aria-label="Refresh">
+            <FontAwesomeIcon icon={faArrowsRotate} spin={refreshing} />
+          </button>
+          <button className="ai-cta-btn" type="button" onClick={handleCreateVideo}>
+            <FontAwesomeIcon icon={faVideo} /> Create Videos
+          </button>
+          <button className="ai-pro-pill" type="button" title="PRO plan">
+            <FontAwesomeIcon icon={faCrown} /> PRO
+          </button>
         </div>
-
-        <nav className="ai-nav">
-          <div className="ai-nav-section">
-            <Link className="ai-nav-item" to="/dashboard">
-              <FontAwesomeIcon icon={faBoxesStacked} /> <span>Overview</span>
-            </Link>
-            <Link className="ai-nav-item" to="/dashboard">
-              <FontAwesomeIcon icon={faCalendarDays} /> <span>Publish Plan</span>
-            </Link>
-            <Link className="ai-nav-item" to="/dashboard">
-              <FontAwesomeIcon icon={faComments} /> <span>Feed</span>
-            </Link>
-            <Link className="ai-nav-item" to="/prompts">
-              <FontAwesomeIcon icon={faNewspaper} /> <span>Posts</span>
-            </Link>
-            <Link className="ai-nav-item" to="/dashboard">
-              <FontAwesomeIcon icon={faChartLine} /> <span>Reports</span>
-            </Link>
-            <Link className="ai-nav-item" to="/settings">
-              <FontAwesomeIcon icon={faUsers} /> <span>Accounts</span>
-            </Link>
-          </div>
-
-          <div className="ai-nav-group-label">AI Studio</div>
-          <div className="ai-nav-section">
-            <button className="ai-nav-item" type="button" onClick={handleCreateVideo}>
-              <FontAwesomeIcon icon={faVideo} /> <span>Create Video</span>
-            </button>
-            <Link className="ai-nav-item" to="/prompts">
-              <FontAwesomeIcon icon={faImage} /> <span>Create Image</span>
-            </Link>
-            <Link className="ai-nav-item" to="/prompts">
-              <FontAwesomeIcon icon={faWandMagicSparkles} /> <span>Smart Prompt</span>
-            </Link>
-            <span className="ai-nav-item active">
-              <FontAwesomeIcon icon={faBook} /> <span>AI Library</span>
-            </span>
-          </div>
-        </nav>
-
-        <div className="ai-sidebar-footer">
-          <div className="ai-pro-card">
-            <FontAwesomeIcon icon={faCrown} className="ai-pro-icon" />
-            <div className="ai-pro-text">
-              <div className="ai-pro-title">PRO Plan</div>
-              <div className="ai-pro-sub">Unlimited renders</div>
-            </div>
-            <button className="ai-pro-btn" type="button">Upgrade</button>
-          </div>
-          <div className="ai-sidebar-user">
-            <img
-              src={user?.picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'User')}&background=ecebff&color=5047a8`}
-              alt="Profile"
-              className="ai-sidebar-avatar"
+        <div className="ai-toolbar-right">
+          <div className="ai-search">
+            <FontAwesomeIcon icon={faMagnifyingGlass} className="ai-search-icon" />
+            <input
+              type="text"
+              placeholder="Search videos by title, tag…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
             />
-            <div className="ai-sidebar-user-info">
-              <div className="ai-sidebar-user-name">{user?.name || 'User'}</div>
-              <Link className="ai-sidebar-user-link" to="/profile">Profile</Link>
-            </div>
           </div>
         </div>
-      </aside>
+      </div>
 
-      {/* Main */}
-      <main className="ai-main">
-        <header className="ai-topbar">
-          <div className="ai-topbar-left">
-            <button className="ai-icon-btn" type="button" onClick={handleRefresh} title="Refresh" aria-label="Refresh">
-              <FontAwesomeIcon icon={faArrowsRotate} spin={refreshing} />
-            </button>
-            <button className="ai-cta-btn" type="button" onClick={handleCreateVideo}>
-              <FontAwesomeIcon icon={faVideo} /> Create Videos
-            </button>
-            <button className="ai-pro-pill" type="button">
-              <FontAwesomeIcon icon={faCrown} /> PRO
-            </button>
-          </div>
-          <div className="ai-topbar-right">
-            <div className="ai-search">
-              <FontAwesomeIcon icon={faMagnifyingGlass} className="ai-search-icon" />
-              <input
-                type="text"
-                placeholder="Search videos by title, tag…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-          </div>
-        </header>
+      <div className="ai-stats-row">
+        <div className="ai-stat"><span className="ai-stat-num">{items.length}</span><span className="ai-stat-label">videos</span></div>
+        <div className="ai-stat"><span className="ai-stat-num">{totalDuration}</span><span className="ai-stat-label">total length</span></div>
+        <div className="ai-stat"><span className="ai-stat-num">{totalSize}</span><span className="ai-stat-label">storage</span></div>
+      </div>
 
-        <section className="ai-page-head">
-          <div>
-            <h1>AI Library</h1>
-            <p className="ai-page-sub">Browse, search and manage your AI-generated videos and images.</p>
-          </div>
-          <div className="ai-stats">
-            <div className="ai-stat"><span className="ai-stat-num">{items.length}</span><span className="ai-stat-label">videos</span></div>
-            <div className="ai-stat"><span className="ai-stat-num">{totalDuration}</span><span className="ai-stat-label">total length</span></div>
-            <div className="ai-stat"><span className="ai-stat-num">{totalSize}</span><span className="ai-stat-label">storage</span></div>
-          </div>
-        </section>
+      <div className="ai-filters">
+        <div className="ai-filter-group">
+          <FontAwesomeIcon icon={faFilter} className="ai-filter-icon" />
+          <select className="ai-select" value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Category filter">
+            {CATEGORIES.map((c) => <option key={c} value={c}>{c === 'All' ? 'All categories' : c}</option>)}
+          </select>
+        </div>
+        <div className="ai-filter-group">
+          <select className="ai-select" value={source} onChange={(e) => setSource(e.target.value)} aria-label="Source filter">
+            {SOURCES.map((s) => <option key={s} value={s}>{s === 'All' ? 'All sources' : s}</option>)}
+          </select>
+        </div>
+        <div className="ai-filter-group">
+          <select className="ai-select" value={sortBy} onChange={(e) => setSortBy(e.target.value)} aria-label="Sort by">
+            {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
 
-        <section className="ai-filters">
-          <div className="ai-filter-group">
-            <FontAwesomeIcon icon={faFilter} className="ai-filter-icon" />
-            <select className="ai-select" value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Category filter">
-              {CATEGORIES.map((c) => <option key={c} value={c}>{c === 'All' ? 'All categories' : c}</option>)}
-            </select>
-          </div>
-          <div className="ai-filter-group">
-            <select className="ai-select" value={source} onChange={(e) => setSource(e.target.value)} aria-label="Source filter">
-              {SOURCES.map((s) => <option key={s} value={s}>{s === 'All' ? 'All sources' : s}</option>)}
-            </select>
-          </div>
-          <div className="ai-filter-group">
-            <select className="ai-select" value={sortBy} onChange={(e) => setSortBy(e.target.value)} aria-label="Sort by">
-              {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-          </div>
+        <div className="ai-filter-spacer" />
 
-          <div className="ai-filter-spacer" />
+        <div className="ai-view-toggle" role="group" aria-label="View mode">
+          <button type="button" className={view === 'grid' ? 'active' : ''} onClick={() => setView('grid')}>Grid</button>
+          <button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>List</button>
+        </div>
+      </div>
 
-          <div className="ai-view-toggle" role="group" aria-label="View mode">
-            <button type="button" className={view === 'grid' ? 'active' : ''} onClick={() => setView('grid')}>Grid</button>
-            <button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>List</button>
-          </div>
-        </section>
+      {selected.length > 0 && (
+        <div className="ai-bulk-bar">
+          <span>{selected.length} selected</span>
+          <button className="ai-bulk-btn danger" type="button" onClick={handleDeleteSelected}>
+            <FontAwesomeIcon icon={faTrash} /> Delete
+          </button>
+          <button className="ai-bulk-btn" type="button" onClick={() => setSelected([])}>Clear</button>
+        </div>
+      )}
 
-        {selected.length > 0 && (
-          <section className="ai-bulk-bar">
-            <span>{selected.length} selected</span>
-            <button className="ai-bulk-btn danger" type="button" onClick={handleDeleteSelected}>
-              <FontAwesomeIcon icon={faTrash} /> Delete
-            </button>
-            <button className="ai-bulk-btn" type="button" onClick={() => setSelected([])}>Clear</button>
-          </section>
-        )}
+      <div className="ai-results-meta">
+        <span>Showing <strong>{filtered.length}</strong> of {items.length} videos</span>
+      </div>
 
-        <section className="ai-results-meta">
-          <span>Showing <strong>{filtered.length}</strong> of {items.length} videos</span>
-        </section>
-
-        {filtered.length === 0 ? (
-          <div className="ai-empty">
-            <FontAwesomeIcon icon={faVideo} className="ai-empty-icon" />
-            <h3>No videos match your filters</h3>
-            <p>Try adjusting the search or filters, or create a new AI video.</p>
-            <button className="ai-cta-btn" type="button" onClick={handleCreateVideo}>
-              <FontAwesomeIcon icon={faPlus} /> Create Video
-            </button>
-          </div>
-        ) : view === 'grid' ? (
-          <section className="ai-grid">
-            {filtered.map((it) => (
-              <article
-                key={it.id}
-                className={'ai-card' + (selected.includes(it.id) ? ' selected' : '')}
-                onClick={() => setActiveItem(it)}
-              >
-                <div className="ai-card-thumb">
-                  <img src={`https://picsum.photos/seed/${it.seed}/360/640`} alt={it.title} loading="lazy" />
-                  <span className={sourceBadgeClass(it.source)}>{it.source}</span>
-                  <span className="ai-duration">{it.duration}</span>
-                  <div className="ai-card-play"><FontAwesomeIcon icon={faPlay} /></div>
-                  {it.status === 'processing' && <span className="ai-status-processing">Processing…</span>}
-                </div>
-                <div className="ai-card-body">
-                  <p className="ai-card-title" title={it.title}>{it.title}</p>
-                  <div className="ai-card-meta">
-                    <span>{it.size}</span>
-                    <span className="ai-dot">·</span>
-                    <span>{it.category}</span>
-                  </div>
-                </div>
-                <div className="ai-card-actions" onClick={(e) => e.stopPropagation()}>
-                  <button type="button" title="Select" className={selected.includes(it.id) ? 'checked' : ''} onClick={() => toggleSelect(it.id)}>
-                    {selected.includes(it.id) ? '✓' : ''}
-                  </button>
-                  <button type="button" title="Download"><FontAwesomeIcon icon={faDownload} /></button>
-                  <button type="button" title="Delete" onClick={() => handleDeleteOne(it.id)}><FontAwesomeIcon icon={faTrash} /></button>
-                  <button type="button" title="More"><FontAwesomeIcon icon={faEllipsisVertical} /></button>
-                </div>
-              </article>
-            ))}
-          </section>
-        ) : (
-          <section className="ai-list">
-            <div className="ai-list-head">
-              <span></span><span>Title</span><span>Source</span><span>Category</span><span>Duration</span><span>Size</span><span>Date</span><span></span>
-            </div>
-            {filtered.map((it) => (
-              <div key={it.id} className={'ai-list-row' + (selected.includes(it.id) ? ' selected' : '')} onClick={() => setActiveItem(it)}>
-                <span className="ai-list-thumb"><img src={`https://picsum.photos/seed/${it.seed}/120/180`} alt={it.title} loading="lazy" /></span>
-                <span className="ai-list-title">{it.title}</span>
-                <span><span className={sourceBadgeClass(it.source)}>{it.source}</span></span>
-                <span className="ai-list-muted">{it.category}</span>
-                <span className="ai-list-muted">{it.duration}</span>
-                <span className="ai-list-muted">{it.size}</span>
-                <span className="ai-list-muted">{it.createdAt}</span>
-                <span className="ai-list-actions" onClick={(e) => e.stopPropagation()}>
-                  <button type="button" title="Download"><FontAwesomeIcon icon={faDownload} /></button>
-                  <button type="button" title="Delete" onClick={() => handleDeleteOne(it.id)}><FontAwesomeIcon icon={faTrash} /></button>
-                </span>
+      {filtered.length === 0 ? (
+        <div className="ai-empty">
+          <FontAwesomeIcon icon={faVideo} className="ai-empty-icon" />
+          <h3>No videos match your filters</h3>
+          <p>Try adjusting the search or filters, or create a new AI video.</p>
+          <button className="ai-cta-btn" type="button" onClick={handleCreateVideo}>
+            <FontAwesomeIcon icon={faPlus} /> Create Video
+          </button>
+        </div>
+      ) : view === 'grid' ? (
+        <div className="ai-grid">
+          {filtered.map((it) => (
+            <article
+              key={it.id}
+              className={'ai-card' + (selected.includes(it.id) ? ' selected' : '')}
+              onClick={() => setActiveItem(it)}
+            >
+              <div className="ai-card-thumb">
+                <img src={`https://picsum.photos/seed/${it.seed}/360/640`} alt={it.title} loading="lazy" />
+                <span className={sourceBadgeClass(it.source)}>{it.source}</span>
+                <span className="ai-duration">{it.duration}</span>
+                <div className="ai-card-play"><FontAwesomeIcon icon={faPlay} /></div>
+                {it.status === 'processing' && <span className="ai-status-processing">Processing…</span>}
               </div>
-            ))}
-          </section>
-        )}
-      </main>
+              <div className="ai-card-body">
+                <p className="ai-card-title" title={it.title}>{it.title}</p>
+                <div className="ai-card-meta">
+                  <span>{it.size}</span>
+                  <span className="ai-dot">·</span>
+                  <span>{it.category}</span>
+                </div>
+              </div>
+              <div className="ai-card-actions" onClick={(e) => e.stopPropagation()}>
+                <button type="button" title="Select" className={selected.includes(it.id) ? 'checked' : ''} onClick={() => toggleSelect(it.id)}>
+                  {selected.includes(it.id) ? '✓' : ''}
+                </button>
+                <button type="button" title="Download"><FontAwesomeIcon icon={faDownload} /></button>
+                <button type="button" title="Delete" onClick={() => handleDeleteOne(it.id)}><FontAwesomeIcon icon={faTrash} /></button>
+                <button type="button" title="More"><FontAwesomeIcon icon={faEllipsisVertical} /></button>
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div className="ai-list">
+          <div className="ai-list-head">
+            <span></span><span>Title</span><span>Source</span><span>Category</span><span>Duration</span><span>Size</span><span>Date</span><span></span>
+          </div>
+          {filtered.map((it) => (
+            <div key={it.id} className={'ai-list-row' + (selected.includes(it.id) ? ' selected' : '')} onClick={() => setActiveItem(it)}>
+              <span className="ai-list-thumb"><img src={`https://picsum.photos/seed/${it.seed}/120/180`} alt={it.title} loading="lazy" /></span>
+              <span className="ai-list-title">{it.title}</span>
+              <span><span className={sourceBadgeClass(it.source)}>{it.source}</span></span>
+              <span className="ai-list-muted">{it.category}</span>
+              <span className="ai-list-muted">{it.duration}</span>
+              <span className="ai-list-muted">{it.size}</span>
+              <span className="ai-list-muted">{it.createdAt}</span>
+              <span className="ai-list-actions" onClick={(e) => e.stopPropagation()}>
+                <button type="button" title="Download"><FontAwesomeIcon icon={faDownload} /></button>
+                <button type="button" title="Delete" onClick={() => handleDeleteOne(it.id)}><FontAwesomeIcon icon={faTrash} /></button>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Preview modal */}
       {activeItem && (
@@ -427,6 +341,6 @@ const AILibrary = ({ user }) => {
       {toast && <div className="ai-toast">{toast}</div>}
     </div>
   );
-};
+});
 
 export default AILibrary;
