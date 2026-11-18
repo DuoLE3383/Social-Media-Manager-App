@@ -1702,6 +1702,23 @@ html[data-theme="dark"] .ci-stop-btn { background: #26243a; border-color: #5a3a3
 .ai-modal-title { margin: 0 0 6px; font-size: 18px; color: #2f2d4e; display: flex; align-items: center; gap: 9px; }
 .ai-modal-title svg { color: #5047a8; }
 .ai-modal-sub { margin: 0 0 14px; font-size: 12.5px; color: #8d89ad; line-height: 1.5; }
+/* Honest-mode notice shown at the top of the video wizard guide */
+.ai-notice {
+  display: flex; align-items: flex-start; gap: 10px;
+  margin: 0 0 12px; padding: 10px 14px;
+  background: #fff7e6; border: 1px solid #f2d9a4; border-radius: 10px;
+  font-size: 12.5px; line-height: 1.55; color: #7a5316; font-weight: 500;
+}
+.ai-notice svg { margin-top: 2px; color: #c98a1b; flex-shrink: 0; }
+.ai-idea-chips { display: flex; flex-direction: column; gap: 8px; }
+.ai-idea-chips-label { font-size: 11.5px; font-weight: 700; color: #6f6c85; text-transform: uppercase; letter-spacing: .05em; }
+.ai-idea-chips-row { display: flex; flex-wrap: wrap; gap: 7px; }
+.ai-idea-chip {
+  border: 1px solid #e3e0f2; background: #f6f5fc; color: #4a4670;
+  border-radius: 999px; padding: 6px 12px; font-size: 12px; cursor: pointer;
+  text-align: left; line-height: 1.4; max-width: 100%;
+}
+.ai-idea-chip:hover { background: #5047a814; border-color: #b9b3e6; color: #2f2d4e; }
 .ai-storyboard-form { display: flex; flex-direction: column; gap: 12px; }
 .ai-label { font-size: 12px; font-weight: 700; color: #3c3a5e; }
 .ai-textarea {
@@ -1749,6 +1766,11 @@ html[data-theme="dark"] .ai-modal-title, html[data-theme="dark"] .ai-scene-info 
 html[data-theme="dark"] .ai-label, html[data-theme="dark"] .ai-checkbox,
 html[data-theme="dark"] .ai-stage-status, html[data-theme="dark"] .ai-scene-row { color: #e8e7f0; }
 html[data-theme="dark"] .ai-modal-sub, html[data-theme="dark"] .ai-scene-info small { color: #8d89ad; }
+html[data-theme="dark"] .ai-notice { background: #33290f; border-color: #584317; color: #e8c98a; }
+html[data-theme="dark"] .ai-notice svg { color: #d9a94e; }
+html[data-theme="dark"] .ai-idea-chips-label { color: #918db0; }
+html[data-theme="dark"] .ai-idea-chip { background: #26243a; border-color: #3a3760; color: #c9c6de; }
+html[data-theme="dark"] .ai-idea-chip:hover { background: #312e4d; border-color: #5047a8; color: #ece9fa; }
 html[data-theme="dark"] .ai-textarea { background: #171624; border-color: #322f4a; color: #e8e7f0; }
 html[data-theme="dark"] .ai-scene-card, html[data-theme="dark"] .ai-scene-row { background: #171624; border-color: #322f4a; }
 html[data-theme="dark"] .ai-scene-thumb { background: #26243a; }

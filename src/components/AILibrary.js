@@ -15,6 +15,7 @@ import {
   faWandMagicSparkles,
   faFilm,
   faImage,
+  faCircleInfo,
 } from '@fortawesome/free-solid-svg-icons';
 import { useLang } from '../lib/i18n';
 import { apiUrl } from '../lib/api';
@@ -25,6 +26,16 @@ const W = 720;
 const H = 1280;
 
 const CATEGORIES = ['All', 'Food', 'Lifestyle', 'People', 'Products', 'Scenery'];
+
+// Quick-start ideas for the video wizard — click one to fill the idea field.
+const IDEA_VIDEO_SUGGESTIONS = [
+  'Quán cà phê sữa đá mới mở tại Sài Gòn, hướng giới trẻ, vibe chill',
+  'Combo trưa văn phòng 45k cho quán ăn, nhanh gọn no bụng',
+  'Tour 30 giây quanh homestay view núi Đà Lạt, bình minh sương mù',
+  'Ra mắt bộ sưu tập thời trang thu đông, tông màu ấm',
+  'Khai trương phòng gym, ưu đãi tháng đầu cho 50 người đầu tiên',
+  'Mỹ phẩm dưỡng da hữu cơ, da căng mọng, ánh sáng studio mềm',
+];
 const SORT_OPTIONS = [
   { value: 'newest', labelVi: 'Mới nhất', labelEn: 'Newest first' },
   { value: 'oldest', labelVi: 'Cũ nhất', labelEn: 'Oldest first' },
@@ -42,15 +53,17 @@ const STRINGS = {
     allCategories: 'Tất cả chủ đề',
     allSources: 'Tất cả nguồn',
     emptyTitle: 'Chưa có video nào',
-    emptySub: 'Tạo video đầu tiên: AI viết kịch bản từng cảnh, sinh ảnh rồi render thành video .webm tải về được.',
+    emptySub: 'Tạo video đầu tiên: AI viết kịch bản từng cảnh, sinh ảnh AI rồi ghép thành video slideshow .webm tải về được (không phải video AI chuyển động).',
     selected: 'đã chọn',
     delete: 'Xoá',
     clear: 'Bỏ chọn',
     showing: 'Hiển thị',
     of: 'trong',
     // modal
-    modalTitle: 'Tạo video từ ý tưởng (AI thật)',
-    modalSub: 'Bước 1: LLM viết kịch bản từng cảnh · Bước 2: sinh ảnh mỗi cảnh · Bước 3: render video .webm trong trình duyệt.',
+    modalTitle: 'Tạo video slideshow từ ý tưởng (AI thật)',
+    slideshowNotice: 'Video hiện tại là SLIDESHOW: các ảnh AI của từng cảnh được ghép nối tiếp với chuyển cảnh mượt + caption — không phải video AI chuyển động thật (kiểu Sora / Veo / Runway).',
+    modalSub: 'Cách dùng — Bước 1: LLM viết kịch bản từng cảnh · Bước 2: sinh ảnh AI cho mỗi cảnh · Bước 3: ghép thành video slideshow .webm trong trình duyệt.',
+    suggestionLabel: 'Gợi ý ý tưởng — bấm để điền:',
     ideaLabel: 'Ý tưởng / sản phẩm',
     ideaPlaceholder: 'VD: Quán cà phê sữa đá mới mở tại Sài Gòn, hướng giới trẻ, vibe chill',
     scenesLabel: 'Số cảnh',
@@ -85,14 +98,16 @@ const STRINGS = {
     allCategories: 'All categories',
     allSources: 'All sources',
     emptyTitle: 'No videos yet',
-    emptySub: 'Create your first video: the AI writes scene-by-scene script, generates images, then renders a downloadable .webm.',
+    emptySub: 'Create your first video: the AI writes a scene-by-scene script, generates AI images, then stitches them into a downloadable .webm slideshow (not motion AI video).',
     selected: 'selected',
     delete: 'Delete',
     clear: 'Clear',
     showing: 'Showing',
     of: 'of',
-    modalTitle: 'Create video from an idea (real AI)',
-    modalSub: 'Step 1: LLM writes the scene script · Step 2: generates an image per scene · Step 3: renders a .webm in your browser.',
+    modalTitle: 'Create a slideshow video from an idea (real AI)',
+    slideshowNotice: 'Current videos are SLIDESHOWS: AI-generated scene images stitched in order with smooth transitions + captions — not true motion AI video (Sora / Veo / Runway style).',
+    modalSub: 'How it works — Step 1: LLM writes the scene script · Step 2: generates an AI image per scene · Step 3: stitches a .webm slideshow in your browser.',
+    suggestionLabel: 'Idea suggestions — click to fill:',
     ideaLabel: 'Idea / product',
     ideaPlaceholder: 'e.g. A new iced-milk-coffee cafe in Saigon for young people, chill vibe',
     scenesLabel: 'Scenes',
@@ -644,6 +659,10 @@ const AILibrary = forwardRef(({ user }, ref) => {
           <div className="ai-modal ai-modal-wide" onClick={(e) => e.stopPropagation()}>
             <button className="ai-modal-close" type="button" onClick={() => setModalOpen(false)}><FontAwesomeIcon icon={faXmark} /></button>
             <h2 className="ai-modal-title"><FontAwesomeIcon icon={faWandMagicSparkles} /> {T.modalTitle}</h2>
+            <div className="ai-notice" role="note">
+              <FontAwesomeIcon icon={faCircleInfo} />
+              <span>{T.slideshowNotice}</span>
+            </div>
             <p className="ai-modal-sub">{T.modalSub}</p>
 
             {stage === 'input' && (
@@ -656,6 +675,14 @@ const AILibrary = forwardRef(({ user }, ref) => {
                   onChange={(e) => setIdea(e.target.value)}
                   placeholder={T.ideaPlaceholder}
                 />
+                <div className="ai-idea-chips">
+                  <span className="ai-idea-chips-label">{T.suggestionLabel}</span>
+                  <div className="ai-idea-chips-row">
+                    {IDEA_VIDEO_SUGGESTIONS.map((s) => (
+                      <button key={s} type="button" className="ai-idea-chip" onClick={() => setIdea(s)}>{s}</button>
+                    ))}
+                  </div>
+                </div>
                 <div className="ai-form-row">
                   <label className="ai-label">{T.scenesLabel}: <strong>{sceneCount}</strong></label>
                   <input type="range" min="3" max="5" value={sceneCount} onChange={(e) => setSceneCount(Number(e.target.value))} />

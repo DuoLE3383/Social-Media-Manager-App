@@ -106,8 +106,8 @@ const ROUTE_TITLES = {
     en: { title: 'Smart Prompt', sub: 'Content idea assistant and prompt templates.' },
   },
   '/ai-library': {
-    vi: { title: 'Thư viện AI', sub: 'Tạo video storyboard và quản lý video/ảnh AI đã tạo.' },
-    en: { title: 'AI Library', sub: 'Create storyboard videos and manage generated media.' },
+    vi: { title: 'Thư viện AI', sub: 'Tạo video slideshow từ kịch bản AI (ảnh từng cảnh ghép chuyển cảnh) và quản lý video/ảnh AI đã tạo.' },
+    en: { title: 'AI Library', sub: 'Create slideshow videos from AI scripts (scene images stitched with transitions) and manage generated media.' },
   },
   '/settings': {
     vi: { title: 'Kết nối', sub: 'Quản lý tài khoản mạng xã hội và tích hợp.' },
