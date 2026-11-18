@@ -1,4 +1,7 @@
 node_modules
+# Build output is generated per-machine (npm run build). Keeping it out of git
+# avoids "Your local changes to build/... would be overwritten" on server pulls.
+build/
 .env
 .env.*
 !.env.example

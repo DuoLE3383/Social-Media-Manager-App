@@ -12,6 +12,12 @@ const OLLAMA_URL = (process.env.OLLAMA_URL || 'http://127.0.0.1:11434').replace(
 const COMFYUI_URL = (process.env.COMFYUI_URL || 'http://127.0.0.1:8188').replace(/\/$/, '');
 const COMFYUI_CHECKPOINT = process.env.COMFYUI_CHECKPOINT || 'sd_xl_base_1.0.safetensors';
 const MODEL = process.env.LLM_MODEL || 'qwen2.5:3b';
+// OpenAI-compatible endpoint. Accepts BOTH a base URL ("http://host:8888/v1" —
+// the form LM Studio / vLLM / Ollama's OpenAI mode uses) and a full URL ending
+// in /chat/completions. Without this, "http://host:8888/v1" would be POSTed to
+// directly and fail with 404.
+const OPENAI_BASE = (process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/+$/, '');
+const OPENAI_URL = OPENAI_BASE.endsWith('/chat/completions') ? OPENAI_BASE : `${OPENAI_BASE}/chat/completions`;
 const MODEL_PREMIUM = process.env.LLM_MODEL_PREMIUM || '';
 const MODEL_EMBED = process.env.LLM_MODEL_EMBED || 'nomic-embed-text';
 const LLM_TIMEOUT_DEFAULT = positiveInt(process.env.LLM_TIMEOUT_DEFAULT, 90_000);
@@ -824,7 +830,7 @@ async function generate(prompt, system, tier = 'default', signal) {
   };
   if (PROVIDER === 'openai') {
     if (!process.env.OPENAI_API_KEY) throw Object.assign(new Error('OPENAI_API_KEY is missing from the server environment.'), { status: 503 });
-    const data = await postJson(process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1/chat/completions', {
+    const data = await postJson(OPENAI_URL, {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
       body: JSON.stringify({ model: pickModel(tier), messages: [{ role: 'system', content: system || 'You are a careful social media strategist. Be clear, useful, and honest about uncertainty.' }, { role: 'user', content: prompt }] })
     });
