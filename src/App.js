@@ -3,7 +3,12 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 import Login from './components/Login';
-import Dashboard from './components/Dashboard';
+import Overview from './components/Overview';
+import Feed from './components/Feed';
+import PublishPlan from './components/PublishPlan';
+import Reports from './components/Reports';
+import CreateImage from './components/CreateImage';
+import SmartPrompt from './components/SmartPrompt';
 import Profile from './components/Profile';
 import PromptStudio from './components/PromptStudio';
 import { supabase } from './lib/supabase';
@@ -80,8 +85,14 @@ function App() {
                 onCreateVideo={() => libraryRef.current?.createVideo()}
               >
                 <Routes>
-                  <Route path="/dashboard" element={<Dashboard user={user} />} />
+                  <Route path="/dashboard" element={<Overview user={user} />} />
+                  <Route path="/overview" element={<Overview user={user} />} />
+                  <Route path="/feed" element={<Feed user={user} />} />
+                  <Route path="/publish-plan" element={<PublishPlan user={user} />} />
+                  <Route path="/reports" element={<Reports user={user} />} />
                   <Route path="/prompts" element={<PromptStudio user={user} />} />
+                  <Route path="/create-image" element={<CreateImage user={user} />} />
+                  <Route path="/smart-prompt" element={<SmartPrompt user={user} />} />
                   <Route path="/ai-library" element={<AILibrary ref={libraryRef} user={user} />} />
                   <Route path="/settings" element={<Connections user={user} />} />
                   <Route path="/profile" element={<Profile user={user} />} />

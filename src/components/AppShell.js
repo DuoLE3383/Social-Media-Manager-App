@@ -26,11 +26,11 @@ import {
 const NAV_SECTIONS = [
   {
     items: [
-      { to: '/dashboard', icon: faBoxesStacked, label: 'Overview', activeOn: ['/dashboard'] },
-      { to: '/dashboard', icon: faCalendarDays, label: 'Publish Plan', activeOn: [] },
-      { to: '/dashboard', icon: faComments, label: 'Feed', activeOn: [] },
+      { to: '/dashboard', icon: faBoxesStacked, label: 'Overview', activeOn: ['/dashboard', '/overview'] },
+      { to: '/publish-plan', icon: faCalendarDays, label: 'Publish Plan', activeOn: ['/publish-plan'] },
+      { to: '/feed', icon: faComments, label: 'Feed', activeOn: ['/feed'] },
       { to: '/prompts', icon: faNewspaper, label: 'Posts', activeOn: ['/prompts'] },
-      { to: '/dashboard', icon: faChartLine, label: 'Reports', activeOn: [] },
+      { to: '/reports', icon: faChartLine, label: 'Reports', activeOn: ['/reports'] },
       { to: '/settings', icon: faUsers, label: 'Accounts', activeOn: ['/settings'] },
     ],
   },
@@ -38,17 +38,23 @@ const NAV_SECTIONS = [
 
 const AI_STUDIO_ITEMS = [
   { to: '/ai-library', icon: faVideo, label: 'Create Video', activeOn: [], isAction: true },
-  { to: '/prompts', icon: faImage, label: 'Create Image', activeOn: [] },
-  { to: '/prompts', icon: faWandMagicSparkles, label: 'Smart Prompt', activeOn: [] },
+  { to: '/create-image', icon: faImage, label: 'Create Image', activeOn: ['/create-image'] },
+  { to: '/smart-prompt', icon: faWandMagicSparkles, label: 'Smart Prompt', activeOn: ['/smart-prompt'] },
   { to: '/ai-library', icon: faBook, label: 'AI Library', activeOn: ['/ai-library'] },
 ];
 
 const ROUTE_TITLES = {
-  '/dashboard': { title: 'Overview', sub: 'Your social media activity at a glance.' },
-  '/prompts': { title: 'Prompt Studio', sub: 'Plan, draft and refine content with AI workflows.' },
-  '/ai-library': { title: 'AI Library', sub: 'Browse, search and manage your AI-generated videos and images.' },
-  '/settings': { title: 'Connections', sub: 'Manage your linked social accounts and integrations.' },
-  '/profile': { title: 'Profile', sub: 'Your account details and preferences.' },
+  '/dashboard': { title: 'Overview', sub: 'Tổng quan hoạt động AI Social của bạn trong 7 ngày qua.' },
+  '/overview': { title: 'Overview', sub: 'Tổng quan hoạt động AI Social của bạn trong 7 ngày qua.' },
+  '/feed': { title: 'Feed', sub: 'Bảng tin nội dung từ các kênh bạn quản lý.' },
+  '/publish-plan': { title: 'Publish Plan', sub: 'Lịch đăng bài theo tuần và theo nền tảng.' },
+  '/reports': { title: 'Reports', sub: 'Phân tích tương tác, lượt tiếp cận và hiệu suất nội dung.' },
+  '/prompts': { title: 'Prompt Studio', sub: 'Lập kế hoạch, soạn và tinh chỉnh nội dung với AI.' },
+  '/create-image': { title: 'Create Image', sub: 'Sinh ảnh AI từ prompt — chọn phong cách và tỉ lệ khung hình.' },
+  '/smart-prompt': { title: 'Smart Prompt', sub: 'Trợ lý ý tưởng nội dung và template prompt.' },
+  '/ai-library': { title: 'AI Library', sub: 'Duyệt, tìm và quản lý video/ảnh AI đã tạo.' },
+  '/settings': { title: 'Connections', sub: 'Quản lý tài khoản mạng xã hội và tích hợp.' },
+  '/profile': { title: 'Profile', sub: 'Thông tin tài khoản và tuỳ chọn.' },
 };
 
 const isMatch = (activeOn, pathname) => Array.isArray(activeOn) && activeOn.some((p) => pathname === p || pathname.startsWith(p + '/'));
