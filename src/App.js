@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 import Login from './components/Login';
@@ -10,6 +10,7 @@ import PromptStudio from './components/PromptStudio';
 import { supabase } from './lib/supabase';
 import Connections from './components/Connections';
 import DataDeletion from './components/DataDeletion';
+import AILibrary from './components/AILibrary';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faMoon, faSun } from '@fortawesome/free-solid-svg-icons';
 
@@ -61,18 +62,36 @@ function App() {
 
   return (
     <Router>
-      <div className="App">
-        {isAuthenticated
-          ? <Navbar user={user} onLogout={handleLogout} theme={theme} onToggleTheme={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')} />
-          : <button className="theme-toggle floating-theme-toggle" type="button" onClick={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}><FontAwesomeIcon icon={theme === 'dark' ? faSun : faMoon} /></button>}
-        <div className="container-fluid">
+      <AppBody
+        user={user}
+        isAuthenticated={isAuthenticated}
+        theme={theme}
+        onLogin={handleLogin}
+        onLogout={handleLogout}
+        onToggleTheme={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')}
+      />
+    </Router>
+  );
+}
+
+function AppBody({ user, isAuthenticated, theme, onLogin, onLogout, onToggleTheme }) {
+  const location = useLocation();
+  const isLibraryRoute = location.pathname.startsWith('/ai-library');
+  // AI Library renders its own full-screen sidebar layout; hide the global navbar there.
+  const showTopNavbar = isAuthenticated && !isLibraryRoute;
+  return (
+    <div className="App">
+      {showTopNavbar
+        ? <Navbar user={user} onLogout={onLogout} theme={theme} onToggleTheme={onToggleTheme} />
+        : <button className="theme-toggle floating-theme-toggle" type="button" onClick={onToggleTheme} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}><FontAwesomeIcon icon={theme === 'dark' ? faSun : faMoon} /></button>}
+      <div className={isLibraryRoute ? 'ai-page-host' : 'container-fluid'}>
           <Routes>
             <Route path="/privacy/data-deletion" element={<DataDeletion />} />
             <Route 
               path="/login" 
               element={
                 !isAuthenticated ? 
-                <Login onLogin={handleLogin} /> : 
+                <Login onLogin={onLogin} /> : 
                 <Navigate to="/prompts" />
               } 
             />
@@ -85,6 +104,7 @@ function App() {
               } 
             />
             <Route path="/prompts" element={isAuthenticated ? <PromptStudio user={user} /> : <Navigate to="/login" />} />
+            <Route path="/ai-library" element={isAuthenticated ? <AILibrary user={user} /> : <Navigate to="/login" />} />
             <Route path="/settings" element={isAuthenticated ? <Connections user={user} /> : <Navigate to="/login" />} />
             <Route 
               path="/profile" 
@@ -94,18 +114,17 @@ function App() {
                 <Navigate to="/login" />
               } 
             />
-            <Route 
-              path="/" 
+            <Route
+              path="/"
               element={
-                isAuthenticated ? 
+                isAuthenticated ?
                 <Navigate to="/prompts" /> :
                 <Navigate to="/login" />
-              } 
+              }
             />
           </Routes>
         </div>
       </div>
-    </Router>
   );
 }
 

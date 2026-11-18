@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faHome, faUser, faSignOutAlt, faWandMagicSparkles, faPlug, faMoon, faSun } from '@fortawesome/free-solid-svg-icons';
+import { faHome, faUser, faSignOutAlt, faWandMagicSparkles, faPlug, faMoon, faSun, faPhotoFilm } from '@fortawesome/free-solid-svg-icons';
 
 const Navbar = ({ user, onLogout, theme, onToggleTheme }) => {
   return (
@@ -29,6 +29,12 @@ const Navbar = ({ user, onLogout, theme, onToggleTheme }) => {
               </Link>
             </li>
             <li className="nav-item"><Link className="nav-link" to="/prompts"><FontAwesomeIcon icon={faWandMagicSparkles} className="me-1" />Prompt Studio</Link></li>
+            <li className="nav-item">
+              <Link className="nav-link" to="/ai-library">
+                <FontAwesomeIcon icon={faPhotoFilm} className="me-1" />
+                AI Library
+              </Link>
+            </li>
             <li className="nav-item"><Link className="nav-link" to="/settings"><FontAwesomeIcon icon={faPlug} className="me-1" />Connections</Link></li>
             <li className="nav-item">
               <Link className="nav-link" to="/profile">
