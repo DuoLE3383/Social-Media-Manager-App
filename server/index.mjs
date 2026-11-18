@@ -11,6 +11,13 @@ const PROVIDER = (process.env.LLM_PROVIDER || 'ollama').toLowerCase();
 const OLLAMA_URL = (process.env.OLLAMA_URL || 'http://127.0.0.1:11434').replace(/\/$/, '');
 const COMFYUI_URL = (process.env.COMFYUI_URL || 'http://127.0.0.1:8188').replace(/\/$/, '');
 const COMFYUI_CHECKPOINT = process.env.COMFYUI_CHECKPOINT || 'sd_xl_base_1.0.safetensors';
+// Pollinations: free, keyless text-to-image endpoint. It gives every deployment
+// REAL AI images out of the box (no GPU, no API key), so the old "poster SVG"
+// behaviour is only the very last fallback now.
+const POLLINATIONS_URL = 'https://image.pollinations.ai';
+const IMAGE_PROVIDER_PREF = (process.env.IMAGE_PROVIDER || 'auto').toLowerCase();
+const LLM_MAX_TOKENS = positiveInt(process.env.LLM_MAX_TOKENS, 1024);
+const LLM_TEMPERATURE = clampNumber(Number(process.env.LLM_TEMPERATURE), 0, 1.5, 0.7);
 const MODEL = process.env.LLM_MODEL || 'qwen2.5:3b';
 // OpenAI-compatible endpoint. Accepts BOTH a base URL ("http://host:8888/v1" —
 // the form LM Studio / vLLM / Ollama's OpenAI mode uses) and a full URL ending
@@ -97,6 +104,49 @@ function serveStatic(req, res, pathname) {
 function positiveInt(value, fallback) {
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function clampNumber(value, min, max, fallback) {
+  return Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
+}
+
+// Small local models (3B) often answer in English even when the prompt is
+// Vietnamese, or wrap the answer in <think> blocks / quotes / code fences.
+// The helpers below make the output predictable.
+function looksVietnamese(text) {
+  return /[ăâêôơưđăâêôơưđàáảãạằắẳẵặầấẩẫậèéẻẽẹềếểễệìíỉĩịòóỏõọồốổỗộờớởỡợùúủũụừứửữựỳýỷỹỵ]/i.test(String(text || ''));
+}
+
+function defaultSystemPrompt(prompt) {
+  const base = 'You are a careful social media strategist. Be clear, useful, and honest about uncertainty.';
+  return looksVietnamese(prompt) ? `${base} Always answer in Vietnamese (tiếng Việt).` : base;
+}
+
+function sanitizeModelText(text) {
+  let value = String(text || '');
+  // Reasoning traces some local models emit before the actual answer.
+  value = value.replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/<think>[\s\S]*$/i, '');
+  // A single wrapping code fence around the whole answer.
+  value = value.replace(/^\s*```[a-zA-Z]*\s*\n([\s\S]*?)\n?```\s*$/, '$1');
+  // One pair of wrapping quotes around the whole answer.
+  value = value.replace(/^\s*["“']([\s\S]*)["”']\s*$/, '$1');
+  value = value.replace(/\n{3,}/g, '\n\n');
+  return value.trim();
+}
+
+function requestGenerationOptions(input) {
+  return {
+    temperature: clampNumber(Number(input?.temperature), 0, 1.5, LLM_TEMPERATURE),
+    maxTokens: clampNumber(Number(input?.maxTokens), 64, 4096, LLM_MAX_TOKENS),
+  };
+}
+
+function detectImageMime(bytes) {
+  if (bytes.length > 2 && bytes[0] === 0xff && bytes[1] === 0xd8) return 'image/jpeg';
+  if (bytes.length > 7 && bytes[0] === 0x89 && bytes[1] === 0x50) return 'image/png';
+  const head = bytes.subarray(0, 5).toString('utf8').trim().toLowerCase();
+  if (head.startsWith('<svg') || head.startsWith('<?xml')) return 'image/svg+xml';
+  return 'image/png';
 }
 
 function llmTimeout(tier) {
@@ -567,28 +617,87 @@ function posterFallbackSvg(prompt, width = 768, height = 768) {
   <circle cx="${width * 0.88}" cy="${height * 0.86}" r="${width * r3 / 100}" fill="#ffffff" opacity="0.14"/>
   <rect x="${width * 0.10}" y="${startY - lineH * 0.95}" width="${width * 0.80}" height="${blockH + lineH * 0.35}" rx="14" fill="#000000" opacity="0.22"/>
   ${textEls}
-  <text x="${width / 2}" y="${height - Math.round(height * 0.06)}" font-family="'Segoe UI', system-ui, sans-serif" font-size="${Math.max(14, Math.round(width / 42))}" fill="#ffffff" opacity="0.85" text-anchor="middle">AI Social · ảnh thử nghiệm (poster)</text>
+  <text x="${width / 2}" y="${height - Math.round(height * 0.06)}" font-family="'Segoe UI', system-ui, sans-serif" font-size="${Math.max(14, Math.round(width / 42))}" fill="#ffffff" opacity="0.85" text-anchor="middle">AI Social · poster dự phòng (không phải ảnh AI)</text>
 </svg>`;
   return Buffer.from(svg, 'utf8');
 }
 
-async function generateImageWithFallback(prompt, width, height, allowHorde) {
-  try {
-    const bytes = await generateLocalThreadsImage(prompt, width, height);
-    console.log('Image generated with local ComfyUI.');
-    return { bytes, provider: 'comfyui' };
-  } catch (localError) {
-    console.warn('ComfyUI image generation unavailable:', localError.message);
-  }
-  if (allowHorde !== false) {
+// Free keyless text-to-image (Flux-based). Takes ~5-30 seconds per image and
+// requires nothing but outbound internet, which makes it the default "real AI"
+// engine for deployments without a local GPU.
+async function generatePollinationsImage(imagePrompt, width = 768, height = 768) {
+  const prompt = typeof imagePrompt === 'string' ? imagePrompt.trim() : '';
+  if (!prompt || prompt.length > 4000) throw metaError('Image prompt is missing or too long.', 400);
+  const timeoutMs = positiveInt(process.env.POLLINATIONS_IMAGE_TIMEOUT_MS, 180_000);
+  const apiKey = process.env.POLLINATIONS_API_KEY || '';
+  const headers = apiKey ? { Authorization: `Bearer ${apiKey}` } : {};
+  const maxAttempts = apiKey ? 2 : 4;
+  let lastError;
+  // The anonymous free tier allows ~1 image per 45s per IP and answers HTTP 402
+  // with a "Retry after Ns" hint when the limit is hit — wait and retry instead
+  // of falling straight through to the poster. 400/5xx failures retry once with
+  // a fresh seed (the first random seed can exceed their int32 validation).
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    // Pollinations validates seed <= 2147483647 (int32).
+    const seed = randomBytes(4).readUInt32LE(0) % 2147483647;
+    const url = `${POLLINATIONS_URL}/prompt/${encodeURIComponent(prompt)}?width=${width}&height=${height}&seed=${seed}&nologo=true`;
     try {
-      // Cap the wait at 280s so the whole request stays under nginx's 360s
-      // proxy_read_timeout (deploy/nginx.conf.example).
-      const waitMs = Math.min(positiveInt(process.env.HORDE_IMAGE_TIMEOUT_MS, 900_000), 280_000);
-      const bytes = await generateHordeThreadsImage(prompt, width, height, waitMs);
-      return { bytes, provider: 'aihorde' };
-    } catch (hordeError) {
-      console.warn('AI Horde image generation unavailable:', hordeError.message);
+      const response = await fetchWithTimeout(url, { headers }, timeoutMs);
+      const contentType = response.headers.get('content-type') || '';
+      if (!response.ok || !contentType.startsWith('image/')) {
+        const detail = await response.text().catch(() => '');
+        console.warn(`Pollinations HTTP ${response.status}: ${detail.slice(0, 300)}`);
+        if (response.status === 402 && attempt < maxAttempts - 1) {
+          const waitMatch = detail.match(/Retry after (\d+)s/i);
+          const waitSec = Math.min(Number(waitMatch?.[1] || 30) + 2, 50);
+          await new Promise((resolve) => setTimeout(resolve, waitSec * 1000));
+        }
+        lastError = metaError(`Pollinations did not return an image (HTTP ${response.status}).`, 502);
+        continue;
+      }
+      const bytes = Buffer.from(await response.arrayBuffer());
+      if (!bytes.length || bytes.length > 12 * 1024 * 1024) throw metaError('Pollinations image is empty or larger than 12 MB.', 502);
+      return bytes;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
+}
+
+async function generateImageWithFallback(prompt, width, height, allowHorde) {
+  // Provider preference (IMAGE_PROVIDER env): auto | comfyui | pollinations | horde | poster.
+  // "auto" walks the chain from fastest/cheapest real engine to the poster fallback.
+  const chain = ['comfyui', 'pollinations'];
+  if (allowHorde !== false) chain.push('horde');
+  chain.push('poster');
+  const engines = ['auto', '', 'chain'].includes(IMAGE_PROVIDER_PREF)
+    ? chain
+    : (IMAGE_PROVIDER_PREF === 'horde' && allowHorde === false ? [] : [IMAGE_PROVIDER_PREF]);
+  for (const engine of engines) {
+    try {
+      if (engine === 'comfyui') {
+        const bytes = await generateLocalThreadsImage(prompt, width, height);
+        console.log('Image generated with local ComfyUI.');
+        return { bytes, provider: 'comfyui' };
+      }
+      if (engine === 'pollinations') {
+        const bytes = await generatePollinationsImage(prompt, width, height);
+        console.log('Image generated with Pollinations.');
+        return { bytes, provider: 'pollinations' };
+      }
+      if (engine === 'horde') {
+        // Cap the wait at 280s so the whole request stays under nginx's 360s
+        // proxy_read_timeout (deploy/nginx.conf.example).
+        const waitMs = Math.min(positiveInt(process.env.HORDE_IMAGE_TIMEOUT_MS, 900_000), 280_000);
+        const bytes = await generateHordeThreadsImage(prompt, width, height, waitMs);
+        return { bytes, provider: 'aihorde' };
+      }
+      if (engine === 'poster') {
+        return { bytes: posterFallbackSvg(prompt, width, height), provider: 'poster' };
+      }
+    } catch (error) {
+      console.warn(`${engine} image generation unavailable:`, error.message);
     }
   }
   return { bytes: posterFallbackSvg(prompt, width, height), provider: 'poster' };
@@ -826,21 +935,25 @@ function hasOllamaModel(names, model) {
   return names.some((name) => name === model || name.replace(/:latest$/, '') === model.replace(/:latest$/, ''));
 }
 
-async function ollamaChat(prompt, system, model, tier, signal) {
+async function ollamaChat(prompt, system, model, tier, signal, opts = {}) {
   const timeoutMs = llmTimeout(tier);
   let lastError;
   for (let attempt = 0; attempt <= 2; attempt += 1) {
     try {
       const response = await fetchWithTimeout(`${OLLAMA_URL}/api/chat`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, stream: false, messages: [{ role: 'system', content: system || 'You are a careful social media strategist. Be clear, useful, and honest about uncertainty.' }, { role: 'user', content: prompt }] })
+        body: JSON.stringify({
+          model, stream: false,
+          options: { temperature: opts.temperature ?? LLM_TEMPERATURE, num_predict: opts.maxTokens ?? LLM_MAX_TOKENS },
+          messages: [{ role: 'system', content: system || 'You are a careful social media strategist. Be clear, useful, and honest about uncertainty.' }, { role: 'user', content: prompt }]
+        })
       }, timeoutMs, signal);
       const data = await response.json().catch(() => ({}));
       if (response.status === 404) throw Object.assign(new Error(`Ollama model "${model}" is not installed. Run: ollama pull ${model}`), { code: 'MODEL_NOT_FOUND', status: 404 });
       if (response.status === 429) throw Object.assign(new Error('Ollama is busy. Please try again shortly.'), { code: 'RATE_LIMITED', status: 429 });
       if (response.status >= 500) throw Object.assign(new Error(`Ollama returned ${response.status}. Check that the Ollama service is healthy.`), { code: 'PROVIDER_DOWN', status: 503 });
       if (!response.ok) throw Object.assign(new Error(data.error || `Ollama rejected the request (${response.status}).`), { code: 'PROVIDER_ERROR', status: 502 });
-      const text = data.message?.content?.trim();
+      const text = sanitizeModelText(data.message?.content);
       if (!text) throw Object.assign(new Error('The model returned an empty response. Try a clearer or shorter prompt.'), { code: 'INVALID_RESPONSE', status: 502 });
       return { text, model: data.model || model, provider: 'ollama', tier };
     } catch (error) {
@@ -862,7 +975,9 @@ function waitForRetry(delayMs, signal) {
   });
 }
 
-async function generate(prompt, system, tier = 'default', signal) {
+async function generate(prompt, system, tier = 'default', signal, opts = {}) {
+  const temperature = opts.temperature ?? LLM_TEMPERATURE;
+  const maxTokens = opts.maxTokens ?? LLM_MAX_TOKENS;
   if (PROVIDER === 'ollama') {
     return enqueueOllama(async () => {
       const names = await availableOllamaModels(signal);
@@ -879,12 +994,12 @@ async function generate(prompt, system, tier = 'default', signal) {
         }
       }
       try {
-        const result = await ollamaChat(prompt, system, model, actualTier, signal);
+        const result = await ollamaChat(prompt, system, model, actualTier, signal, { temperature, maxTokens });
         return { ...result, fallbackFrom, ...(fallbackFrom ? { fallbackReason: 'Premium model is not installed; used the default model.' } : {}) };
       } catch (error) {
         if (signal?.aborted) throw abortError();
         if (actualTier !== 'premium' || !LLM_FALLBACK_ENABLED || !hasOllamaModel(names, MODEL)) throw error;
-        const fallback = await ollamaChat(prompt, system, MODEL, 'default', signal);
+        const fallback = await ollamaChat(prompt, system, MODEL, 'default', signal, { temperature, maxTokens });
         return { ...fallback, fallbackFrom: model, fallbackReason: `Premium model failed (${error.code || 'provider error'}); used the default model.` };
       }
     }, signal);
@@ -898,19 +1013,41 @@ async function generate(prompt, system, tier = 'default', signal) {
   };
   if (PROVIDER === 'openai') {
     if (!process.env.OPENAI_API_KEY) throw Object.assign(new Error('OPENAI_API_KEY is missing from the server environment.'), { status: 503 });
-    const data = await postJson(OPENAI_URL, {
+    const request = () => postJson(OPENAI_URL, {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
-      body: JSON.stringify({ model: pickModel(tier), messages: [{ role: 'system', content: system || 'You are a careful social media strategist. Be clear, useful, and honest about uncertainty.' }, { role: 'user', content: prompt }] })
+      body: JSON.stringify({
+        model: pickModel(tier), temperature, max_tokens: maxTokens,
+        messages: [{ role: 'system', content: system || defaultSystemPrompt(prompt) }, { role: 'user', content: prompt }]
+      })
     });
-    return { text: data.choices?.[0]?.message?.content || '', model: data.model || pickModel(tier), provider: 'openai', tier };
+    // Retry transient provider failures (restarts, queueing, dropped sockets)
+    // the same way the Ollama path already does, so one hiccup does not fail a
+    // whole agent run.
+    let lastError;
+    for (let attempt = 0; attempt <= 2; attempt += 1) {
+      try {
+        const data = await request();
+        const text = sanitizeModelText(data.choices?.[0]?.message?.content || '');
+        if (!text) throw Object.assign(new Error('The model returned an empty response. Try a clearer or shorter prompt.'), { code: 'INVALID_RESPONSE', status: 502 });
+        return { text, model: data.model || pickModel(tier), provider: 'openai', tier };
+      } catch (error) {
+        lastError = error;
+        const status = Number(error.status || 0);
+        if (error.code === 'CANCELLED' || error.code === 'INVALID_RESPONSE' || (status >= 400 && status < 500 && status !== 408)) throw error;
+        if (attempt < 2) await waitForRetry(1000 * (2 ** attempt), signal);
+      }
+    }
+    throw lastError;
   }
   if (PROVIDER === 'anthropic') {
     if (!process.env.ANTHROPIC_API_KEY) throw Object.assign(new Error('ANTHROPIC_API_KEY is missing from the server environment.'), { status: 503 });
     const data = await postJson(process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com/v1/messages', {
       method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: pickModel(tier), max_tokens: 2048, system: system || 'You are a careful social media strategist. Be clear, useful, and honest about uncertainty.', messages: [{ role: 'user', content: prompt }] })
+      body: JSON.stringify({ model: pickModel(tier), max_tokens: maxTokens, temperature: Math.min(1, temperature), system: system || defaultSystemPrompt(prompt), messages: [{ role: 'user', content: prompt }] })
     });
-    return { text: data.content?.filter((part) => part.type === 'text').map((part) => part.text).join('\n') || '', model: data.model || pickModel(tier), provider: 'anthropic', tier };
+    const text = sanitizeModelText(data.content?.filter((part) => part.type === 'text').map((part) => part.text).join('\n') || '');
+    if (!text) throw Object.assign(new Error('The model returned an empty response. Try a clearer or shorter prompt.'), { code: 'INVALID_RESPONSE', status: 502 });
+    return { text, model: data.model || pickModel(tier), provider: 'anthropic', tier };
   }
   throw Object.assign(new Error('Unsupported LLM_PROVIDER. Choose ollama, openai, or anthropic.'), { status: 503 });
 }
@@ -1213,8 +1350,10 @@ const server = http.createServer(async (req, res) => {
     const comfy = await comfyImageServiceStatus();
     send(res, 200, {
       comfyui: { available: comfy.available, message: comfy.message },
+      pollinations: { available: true, note: 'Free AI image engine (keyless) — usually 5-30 seconds per image. Anonymous limit: ~1 image per 45 seconds per IP (set POLLINATIONS_API_KEY for unlimited).' },
       horde: { available: true, note: 'Free community GPU queue — usually 1-5 minutes per image.' },
-      fallback: { available: true, note: 'Poster fallback: a designed cover generated from your prompt (instant, no diffusion model).' },
+      fallback: { available: true, note: 'Poster fallback: a designed cover generated from your prompt (instant, not AI-generated).' },
+      preferred: IMAGE_PROVIDER_PREF,
     });
     return;
   }
@@ -1229,7 +1368,7 @@ const server = http.createServer(async (req, res) => {
       const [width, height] = dims[input.ratio] || dims['1:1'];
       const startedAt = Date.now();
       const { bytes, provider } = await generateImageWithFallback(prompt, width, height, input.allowHorde);
-      const mime = provider === 'poster' ? 'image/svg+xml' : 'image/png';
+      const mime = provider === 'poster' ? 'image/svg+xml' : detectImageMime(bytes);
       send(res, 200, {
         image: `data:${mime};base64,${bytes.toString('base64')}`,
         provider, width, height,
@@ -1238,6 +1377,63 @@ const server = http.createServer(async (req, res) => {
       });
     } catch (error) {
       if (!res.destroyed) send(res, error.status || 500, { error: error.code || 'IMAGE_ERROR', message: error.message || 'Could not generate the image.' });
+    }
+    return;
+  }
+  // Multi-step agent run: executes a whole agent (1-12 LLM steps) in one HTTP
+  // request. Steps can reference {{input}} (the task), {{prev}} (the previous
+  // step's output) and {{agent}} (the agent name). Returns every step result,
+  // including partial progress when a later step fails.
+  if (req.method === 'POST' && url.pathname === '/api/agents/run') {
+    try {
+      const abortSignal = clientAbortSignal(req, res);
+      const user = await authenticatedUser(req);
+      if (!checkRateLimit(`agent:${user.id}`)) { send(res, 429, { error: 'Agent rate limit reached. Wait a minute and try again.' }); return; }
+      const input = await bodyJson(req);
+      const rawSteps = Array.isArray(input.steps) ? input.steps : [];
+      if (!rawSteps.length || rawSteps.length > 12) { send(res, 400, { error: 'An agent run needs between 1 and 12 steps.' }); return; }
+      const topic = typeof input.vars?.input === 'string' ? input.vars.input.trim() : '';
+      if (!topic || topic.length > 8_000) { send(res, 400, { error: 'Provide vars.input (the task input) with 1-8,000 characters.' }); return; }
+      const steps = [];
+      for (const [index, step] of rawSteps.entries()) {
+        const prompt = typeof step?.prompt === 'string' ? step.prompt.slice(0, 6_000) : '';
+        if (!prompt.trim()) { send(res, 400, { error: `Step ${index + 1} is missing its prompt.` }); return; }
+        steps.push({ title: String(step.title || `Bước ${index + 1}`).slice(0, 120), prompt });
+      }
+      const language = input.language === 'en' ? 'en' : 'vi';
+      const agentName = String(input.name || 'Agent').slice(0, 120);
+      const tier = input.tier === 'premium' && MODEL_PREMIUM ? 'premium' : 'default';
+      const system = (typeof input.system === 'string' && input.system.trim())
+        ? input.system.trim().slice(0, 4_000)
+        : language === 'en'
+          ? 'You are a senior social media content strategist. Follow the task exactly. Be concise and concrete. Plain text only, no markdown headings.'
+          : 'Bạn là chuyên gia content marketing mạng xã hội. Thực hiện đúng yêu cầu. Trả lời NGẮN GỌN, cụ thể, bằng tiếng Việt. Chỉ dùng văn bản thuần, không markdown.';
+      const startedAt = Date.now();
+      const results = [];
+      let prev = '';
+      let failed = null;
+      for (const [index, step] of steps.entries()) {
+        if (abortSignal.aborted) break;
+        const stepStart = Date.now();
+        const filled = String(step.prompt)
+          .split('{{input}}').join(topic)
+          .split('{{prev}}').join(prev)
+          .split('{{agent}}').join(agentName);
+        try {
+          const result = await generate(filled, system, tier, abortSignal, requestGenerationOptions(input));
+          prev = result.text;
+          results.push({ index, title: step.title, status: 'done', output: result.text, model: result.model, elapsedMs: Date.now() - stepStart });
+        } catch (error) {
+          if (error.code === 'CANCELLED') { results.push({ index, title: step.title, status: 'cancelled' }); break; }
+          failed = { index, title: step.title, status: 'error', error: error.message || 'Generation failed.', elapsedMs: Date.now() - stepStart };
+          results.push(failed);
+          break; // later steps depend on the previous output, so stop here
+        }
+      }
+      send(res, 200, { ok: !failed, error: failed ? failed.error : undefined, steps: results, totalMs: Date.now() - startedAt, createdAt: new Date().toISOString() });
+    } catch (error) {
+      if (error.code === 'CANCELLED' && (res.destroyed || res.writableEnded)) return;
+      send(res, error.status || 502, { error: error.code || 'AGENT_ERROR', message: error.message || 'Agent run failed.' });
     }
     return;
   }
@@ -1251,7 +1447,9 @@ const server = http.createServer(async (req, res) => {
       if (!prompt || prompt.length > 24_000) { send(res, 400, { error: 'Prompt is required and must be under 24,000 characters.' }); return; }
       if (input.tier !== undefined && !['default', 'premium'].includes(input.tier)) { send(res, 400, { error: 'tier must be default or premium.' }); return; }
       const tier = input.tier === 'premium' && MODEL_PREMIUM ? 'premium' : 'default';
-      const result = await generate(prompt, typeof input.system === 'string' ? input.system.slice(0, 4_000) : '', tier, abortSignal);
+      const customSystem = typeof input.system === 'string' ? input.system.trim().slice(0, 4_000) : '';
+      const generationOptions = requestGenerationOptions(input);
+      const result = await generate(prompt, customSystem || defaultSystemPrompt(prompt), tier, abortSignal, generationOptions);
       send(res, 200, { ...result, createdAt: new Date().toISOString() });
     } catch (error) {
       if (error.code === 'CANCELLED' && (res.destroyed || res.writableEnded)) return;

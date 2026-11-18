@@ -1754,3 +1754,105 @@ html[data-theme="dark"] .ai-scene-card, html[data-theme="dark"] .ai-scene-row { 
 html[data-theme="dark"] .ai-scene-thumb { background: #26243a; }
 html[data-theme="dark"] .ai-progress-track { background: #322f4a; }
 html[data-theme="dark"] .ai-ephemeral-tag { background: #26243a; color: #a8a4c8; }
+
+/* ============================================================
+   Agent Builder — closed-loop wizard (goal → steps → run → done)
+   ============================================================ */
+.as-mode-toggle {
+  margin-left: auto; border: 1px solid #e3e0f2; background: #fff; color: #5047a8;
+  border-radius: 999px; padding: 7px 14px; font-size: 12px; font-weight: 700; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 7px;
+}
+.as-mode-toggle:hover { background: #f1effa; }
+.as-wiz-card {
+  position: relative; background: #fff; border: 1px solid #ece9f5; border-radius: 16px;
+  padding: 20px 22px 16px; box-shadow: 0 10px 30px -22px rgba(47, 45, 78, .35);
+}
+.as-wiz-rail {
+  position: relative; display: flex; justify-content: space-between; gap: 4px; margin: 2px 6px 18px;
+}
+.as-wiz-rail-line {
+  position: absolute; top: 15px; left: 7%; right: 7%; height: 2px; background: #e3e0f2; z-index: 0;
+}
+.as-wiz-rail-item {
+  position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 6px;
+  background: none; border: none; cursor: pointer; padding: 0; min-width: 72px;
+}
+.as-wiz-rail-item:disabled { cursor: default; }
+.as-wiz-rail-dot {
+  width: 32px; height: 32px; border-radius: 999px; display: flex; align-items: center; justify-content: center;
+  background: #fff; border: 2px solid #d5d1f5; color: #8d89ad; font-size: 13px; transition: all .15s ease;
+}
+.as-wiz-rail-item.active .as-wiz-rail-dot { background: #5047a8; border-color: #5047a8; color: #fff; }
+.as-wiz-rail-item.done .as-wiz-rail-dot { background: #e7f7ee; border-color: #2aa17a; color: #2aa17a; }
+.as-wiz-rail-label { font-size: 11.5px; font-weight: 700; color: #8d89ad; }
+.as-wiz-rail-item.active .as-wiz-rail-label { color: #5047a8; }
+.as-wiz-title { margin: 0 0 4px; font-size: 16px; font-weight: 800; color: #2f2d4e; }
+.as-wiz-subtitle { margin: 18px 0 8px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: #8d89ad; }
+.as-wiz-sub { margin: 0 0 12px; font-size: 12.5px; color: #6b6890; line-height: 1.55; }
+.as-goal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.as-goal-card {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left;
+  background: #fbfaff; border: 1px solid #ece9f5; border-radius: 12px; padding: 12px; cursor: pointer;
+  transition: border-color .12s ease, box-shadow .12s ease;
+}
+.as-goal-card:hover { border-color: #c9c4f2; box-shadow: 0 6px 18px -12px rgba(80, 71, 168, .4); }
+.as-goal-card.selected { border-color: #5047a8; background: #f3f2fd; }
+.as-goal-emoji { font-size: 20px; color: #5047a8; }
+.as-goal-card strong { font-size: 13px; color: #2f2d4e; }
+.as-goal-card small { font-size: 11.5px; color: #8d89ad; line-height: 1.45; }
+.as-goal-meta { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #b5b1d8; margin-top: 2px; }
+.as-var-warn { font-size: 11px; color: #b3541e; display: inline-flex; align-items: center; }
+.as-retry-btn {
+  border: 1px solid #f3c4c4; background: #fff; color: #c0392b; border-radius: 999px;
+  font-size: 10.5px; font-weight: 700; padding: 2px 9px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.as-retry-btn:hover { background: #fdf3f2; }
+.as-retry-btn:disabled { opacity: .5; cursor: not-allowed; }
+.as-done-head { display: flex; gap: 12px; align-items: flex-start; }
+.as-done-icon { font-size: 26px; color: #2aa17a; }
+.as-done-ok { font-size: 12.5px; color: #2aa17a; font-weight: 600; margin: 0; }
+.as-done-warn { font-size: 12.5px; color: #b3541e; font-weight: 600; margin: 0 0 10px; }
+.as-done-summary { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0 4px; }
+.as-chip {
+  background: #f1effa; color: #5047a8; border-radius: 999px; padding: 4px 12px;
+  font-size: 12px; font-weight: 700;
+}
+.as-done-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 4px; }
+.as-curl-box {
+  position: relative; background: #171624; border-radius: 12px; padding: 14px 44px 14px 14px; overflow: auto;
+}
+.as-curl-box pre {
+  margin: 0; font-size: 11px; line-height: 1.5; color: #d5d3e8; white-space: pre-wrap; word-break: break-all;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+}
+.as-curl-box .as-ghost-btn { position: absolute; top: 8px; right: 8px; padding: 6px 9px; background: #26243a; border-color: #3a3760; color: #c5c2e0; }
+.as-done-next { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+.as-wiz-nav {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  border-top: 1px solid #ece9f5; margin-top: 18px; padding-top: 14px;
+}
+.as-wiz-nav .as-primary-btn { min-width: 170px; justify-content: center; }
+
+/* Pollinations provider badge */
+.ci-provider-badge.p-pollinations { background: #1d7fb3; }
+
+/* Dark theme for the wizard */
+html[data-theme="dark"] .as-wiz-card { background: #1e1c2e; border-color: #322f4a; }
+html[data-theme="dark"] .as-wiz-title, html[data-theme="dark"] .as-goal-card strong { color: #e8e7f0; }
+html[data-theme="dark"] .as-wiz-sub, html[data-theme="dark"] .as-wiz-subtitle { color: #a8a4c8; }
+html[data-theme="dark"] .as-wiz-rail-line { background: #322f4a; }
+html[data-theme="dark"] .as-wiz-rail-dot { background: #171624; border-color: #4a4570; color: #a8a4c8; }
+html[data-theme="dark"] .as-wiz-rail-item.active .as-wiz-rail-dot { background: #5047a8; border-color: #5047a8; color: #fff; }
+html[data-theme="dark"] .as-wiz-rail-item.done .as-wiz-rail-dot { background: #1d3328; border-color: #2aa17a; color: #2aa17a; }
+html[data-theme="dark"] .as-wiz-rail-label { color: #8d89ad; }
+html[data-theme="dark"] .as-wiz-rail-item.active .as-wiz-rail-label { color: #c5c2e0; }
+html[data-theme="dark"] .as-goal-card { background: #171624; border-color: #322f4a; }
+html[data-theme="dark"] .as-goal-card:hover { border-color: #4a4570; }
+html[data-theme="dark"] .as-goal-card.selected { background: #26243a; border-color: #6c65c8; }
+html[data-theme="dark"] .as-mode-toggle { background: #26243a; border-color: #3a3760; color: #c5c2e0; }
+html[data-theme="dark"] .as-chip { background: #26243a; color: #b5b1d8; }
+html[data-theme="dark"] .as-curl-box .as-ghost-btn { background: #26243a; border-color: #4a4570; color: #c5c2e0; }
+html[data-theme="dark"] .as-wiz-nav { border-top-color: #322f4a; }
+html[data-theme="dark"] .as-retry-btn { background: #26243a; border-color: #5a3a3a; color: #e08a80; }

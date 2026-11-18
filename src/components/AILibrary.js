@@ -54,7 +54,7 @@ const STRINGS = {
     ideaLabel: 'Ý tưởng / sản phẩm',
     ideaPlaceholder: 'VD: Quán cà phê sữa đá mới mở tại Sài Gòn, hướng giới trẻ, vibe chill',
     scenesLabel: 'Số cảnh',
-    fastImages: 'Ưu tiên poster nhanh (bỏ qua AI Horde chậm)',
+    fastImages: 'Tạo ảnh nhanh (dùng Pollinations AI, bỏ qua hàng chờ AI Horde)',
     scriptBtn: 'Viết kịch bản',
     scripting: 'AI đang viết kịch bản…',
     imagesBtn: 'Sinh ảnh cảnh',
@@ -72,7 +72,7 @@ const STRINGS = {
     noRecorder: 'Trình duyệt không hỗ trợ ghi video. Hãy tải từng ảnh cảnh về và dựng bằng app khác.',
     addedToLibrary: 'Đã thêm video vào thư viện',
     downloadScenes: 'Tải ảnh từng cảnh',
-    posterLabel: 'Poster',
+    posterLabel: 'Poster dự phòng',
     aiLabel: 'AI ảnh thật',
     reloadHint: 'Video chỉ tồn tại trong phiên — hãy tải về trước khi đóng tab.',
   },
@@ -96,7 +96,7 @@ const STRINGS = {
     ideaLabel: 'Idea / product',
     ideaPlaceholder: 'e.g. A new iced-milk-coffee cafe in Saigon for young people, chill vibe',
     scenesLabel: 'Scenes',
-    fastImages: 'Prefer fast posters (skip slow AI Horde)',
+    fastImages: 'Fast scene images (Pollinations AI, skips the slow AI Horde queue)',
     scriptBtn: 'Write script',
     scripting: 'AI is writing the script…',
     imagesBtn: 'Generate scene images',
@@ -114,7 +114,7 @@ const STRINGS = {
     noRecorder: 'This browser cannot record video. Download the scene images and edit them elsewhere.',
     addedToLibrary: 'Video added to your library',
     downloadScenes: 'Download scene images',
-    posterLabel: 'Poster',
+    posterLabel: 'Poster fallback',
     aiLabel: 'Real AI image',
     reloadHint: 'Videos exist only in this session — download before closing the tab.',
   },
@@ -396,9 +396,10 @@ const AILibrary = forwardRef(({ user }, ref) => {
   const downloadScenes = () => {
     scenes.forEach((scene, i) => {
       if (!scene.image) return;
+      const ext = scene.image.startsWith('data:image/svg') ? 'svg' : scene.image.startsWith('data:image/jpeg') ? 'jpg' : 'png';
       const a = document.createElement('a');
       a.href = scene.image;
-      a.download = `scene-${i + 1}.${scene.image.startsWith('data:image/svg') ? 'svg' : 'png'}`;
+      a.download = `scene-${i + 1}.${ext}`;
       a.click();
     });
   };

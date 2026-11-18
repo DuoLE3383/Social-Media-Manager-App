@@ -13,6 +13,10 @@ function readHistory() {
   try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch { return []; }
 }
 
+// Small local models flip to English when given English instructions on a
+// Vietnamese task — keep coaching instructions in the task's language.
+const looksVietnamese = (text) => /[ăâêôơưđăâêôơưđàáảãạằắẳẵặầấẩẫậèéẻẽẹềếểễệìíỉĩịòóỏõọồốổỗộờớởỡợùúủũụừứửữựỳýỷỹỵ]/i.test(String(text || ''));
+
 export default function PromptStudio({ user, embedded = false }) {
   const [selectedId, setSelectedId] = useState(promptTemplates[0].id);
   const [category, setCategory] = useState('All');
@@ -108,7 +112,9 @@ export default function PromptStudio({ user, embedded = false }) {
     if (!prompt.trim()) return;
     setBusy(true); setNotice(''); setResult(''); setResultMeta(null); setRunningModel(tier === 'premium' ? service.premiumModel : service.model);
     try {
-      const quickPrompt = `${prompt.trim()}\n\nDraft immediately without asking follow-up questions. Fill unspecified bracketed details with sensible assumptions based on the available context. Keep assumptions conservative and briefly label any important assumption.`;
+      const quickPrompt = looksVietnamese(prompt)
+        ? `${prompt.trim()}\n\nViết bản nháp NGAY, không hỏi lại câu hỏi. Chi tiết chưa rõ [trong ngoặc] hãy tự điền giả định hợp lý dựa trên ngữ cảnh, giả định quan trọng thì ghi chú ngắn gọn.`
+        : `${prompt.trim()}\n\nDraft immediately without asking follow-up questions. Fill unspecified bracketed details with sensible assumptions based on the available context. Keep assumptions conservative and briefly label any important assumption.`;
     const data = await generateText(quickPrompt, brandVoice ? `Brand voice and context: ${brandVoice}` : '', tier);
       setResult(await saveGeneratedDraft(data, quickPrompt));
     } catch (error) { setNotice(error.code === 'CANCELLED' ? 'Generation cancelled. You can run it again whenever you are ready.' : error.message); }
@@ -118,17 +124,22 @@ export default function PromptStudio({ user, embedded = false }) {
   const askGuidedQuestion = async (answers, questionNumber) => {
     const knownAnswers = answers.length
       ? answers.map((item, index) => `Q${index + 1}: ${item.question}\nA${index + 1}: ${item.answer}`).join('\n')
-      : 'No clarifications have been collected yet.';
-    const requestPrompt = `Draft task:\n${prompt}\n\nBrand context:\n${brandVoice || 'Not provided.'}\n\nClarifications already collected:\n${knownAnswers}\n\nAsk clarification ${questionNumber} of 3. Choose the single most useful unanswered detail (such as audience, platform, goal, offer, or constraints). Ask exactly one short question in the same language as the task. Do not repeat a question, add commentary, or draft the content yet.`;
-    const data = await generateText(requestPrompt, 'You are a concise content-planning interviewer. Return only one clear follow-up question.');
+      : (looksVietnamese(prompt) ? 'Chưa hỏi câu làm rõ nào.' : 'No clarifications have been collected yet.');
+    const vi = looksVietnamese(prompt);
+    const requestPrompt = vi
+      ? `Nhiệm vụ nháp:\n${prompt}\n\nNgữ cảnh thương hiệu:\n${brandVoice || 'Chưa có.'}\n\nThông tin đã hỏi:\n${knownAnswers}\n\nHỏi câu làm rõ số ${questionNumber} trên 3. Chọn MỘT chi tiết chưa rõ hữu ích nhất (đối tượng, nền tảng, mục tiêu, ưu đãi hoặc ràng buộc). Chỉ hỏi đúng một câu ngắn bằng tiếng Việt. Không lặp lại câu hỏi, không thêm bình luận, chưa soạn nội dung.`
+      : `Draft task:\n${prompt}\n\nBrand context:\n${brandVoice || 'Not provided.'}\n\nClarifications already collected:\n${knownAnswers}\n\nAsk clarification ${questionNumber} of 3. Choose the single most useful unanswered detail (such as audience, platform, goal, offer, or constraints). Ask exactly one short question in the same language as the task. Do not repeat a question, add commentary, or draft the content yet.`;
+    const data = await generateText(requestPrompt, vi ? 'Bạn là người phỏng vấn lên kế hoạch nội dung, ngắn gọn. Chỉ trả về đúng một câu hỏi làm rõ bằng tiếng Việt.' : 'You are a concise content-planning interviewer. Return only one clear follow-up question.');
     return data.text?.trim();
   };
 
   const buildGuidedDraft = async (answers) => {
     const answerText = answers.length
       ? answers.map((item, index) => `${index + 1}. ${item.question}\n   Answer: ${item.answer}`).join('\n')
-      : 'No extra answers. Use reasonable assumptions for missing details.';
-    const finalPrompt = `${prompt.trim()}\n\nThe user chose guided mode and provided these clarifications:\n${answerText}\n\nNow produce the finished requested draft. Do not ask any more questions. If a minor detail remains unknown, use a conservative assumption.`;
+      : (looksVietnamese(prompt) ? 'Không có câu trả lời thêm. Hãy dùng giả định hợp lý cho phần còn thiếu.' : 'No extra answers. Use reasonable assumptions for missing details.');
+    const finalPrompt = looksVietnamese(prompt)
+      ? `${prompt.trim()}\n\nNgười dùng chọn chế độ hướng dẫn và cung cấp các thông tin:\n${answerText}\n\nGiờ hãy viết bản nháp hoàn chỉnh theo yêu cầu. Không hỏi thêm câu nào. Chi tiết nhỏ còn thiếu, dùng giả định hợp lý.`
+      : `${prompt.trim()}\n\nThe user chose guided mode and provided these clarifications:\n${answerText}\n\nNow produce the finished requested draft. Do not ask any more questions. If a minor detail remains unknown, use a conservative assumption.`;
     setDraftingGuided(true);
     setRunningModel(tier === 'premium' ? service.premiumModel : service.model);
     try {

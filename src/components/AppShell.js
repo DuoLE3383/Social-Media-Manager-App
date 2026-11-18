@@ -26,7 +26,7 @@ const NAV_LABELS = {
   overview: { vi: 'Tổng quan', en: 'Overview' },
   publish: { vi: 'Lịch đăng', en: 'Publish Plan' },
   feed: { vi: 'Bảng tin', en: 'Feed' },
-  agents: { vi: 'Agent Studio', en: 'Agent Studio' },
+  agents: { vi: 'Agent Builder', en: 'Agent Builder' },
   reports: { vi: 'Báo cáo', en: 'Reports' },
   accounts: { vi: 'Tài khoản', en: 'Accounts' },
   createVideo: { vi: 'Tạo Video', en: 'Create Video' },
@@ -80,12 +80,12 @@ const ROUTE_TITLES = {
     en: { title: 'Reports', sub: 'Engagement, reach and content performance analytics.' },
   },
   '/prompts': {
-    vi: { title: 'Agent Studio', sub: 'Xây dựng và chạy các agent nội dung nhiều bước với AI.' },
-    en: { title: 'Agent Studio', sub: 'Build and run multi-step AI content agents.' },
+    vi: { title: 'Agent Builder', sub: 'Dựng agent nội dung nhiều bước bằng wizard từng bước khép kín.' },
+    en: { title: 'Agent Builder', sub: 'Build multi-step content agents with a guided, closed-loop wizard.' },
   },
   '/create-image': {
-    vi: { title: 'Tạo Ảnh', sub: 'Sinh ảnh AI thật từ prompt — ComfyUI, AI Horde hoặc poster.' },
-    en: { title: 'Create Image', sub: 'Generate real AI images from prompts — ComfyUI, AI Horde or poster.' },
+    vi: { title: 'Tạo Ảnh', sub: 'Ảnh AI thật từ prompt — ComfyUI, Pollinations, AI Horde hoặc poster dự phòng.' },
+    en: { title: 'Create Image', sub: 'Real AI images from prompts — ComfyUI, Pollinations, AI Horde or poster fallback.' },
   },
   '/smart-prompt': {
     vi: { title: 'Gợi ý thông minh', sub: 'Trợ lý ý tưởng nội dung và template prompt.' },
@@ -113,7 +113,8 @@ const AppShell = ({ user, theme, onToggleTheme, onLogout, onCreateVideo, childre
   const [mobileOpen, setMobileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [lang, setLang] = useLang();
-  const L = NAV_LABELS[lang];
+  // NAV_LABELS is keyed by labelKey with per-language values: { overview: {vi, en}, ... }
+  const labelFor = (key) => NAV_LABELS[key]?.[lang] ?? NAV_LABELS[key]?.vi ?? '';
 
   const routeInfo = ROUTE_TITLES[location.pathname] ? ROUTE_TITLES[location.pathname][lang] : { title: 'AI Social', sub: '' };
 
@@ -153,14 +154,14 @@ const AppShell = ({ user, theme, onToggleTheme, onLogout, onCreateVideo, childre
                     to={item.to}
                     onClick={(e) => handleNavClick(e, item.to)}
                   >
-                    <FontAwesomeIcon icon={item.icon} /> <span>{L[item.labelKey]}</span>
+                    <FontAwesomeIcon icon={item.icon} /> <span>{labelFor(item.labelKey)}</span>
                   </Link>
                 );
               })}
             </div>
           ))}
 
-          <div className="app-nav-group-label">{L.aiStudio}</div>
+          <div className="app-nav-group-label">{labelFor('aiStudio')}</div>
           <div className="app-nav-section">
             {AI_STUDIO_ITEMS.map((item) => {
               const active = isMatch(item.activeOn, location.pathname);
@@ -178,7 +179,7 @@ const AppShell = ({ user, theme, onToggleTheme, onLogout, onCreateVideo, childre
                     setMobileOpen(false);
                   }}
                 >
-                  <FontAwesomeIcon icon={item.icon} /> <span>{L[item.labelKey]}</span>
+                  <FontAwesomeIcon icon={item.icon} /> <span>{labelFor(item.labelKey)}</span>
                 </Link>
               );
             })}

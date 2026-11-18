@@ -44,7 +44,7 @@ const STRINGS = {
   vi: {
     eyebrow: 'TẠO ẢNH AI',
     heading: 'Mô tả ý tưởng',
-    sub: 'Prompt gửi thẳng tới engine ảnh thật của server: ComfyUI cục bộ → AI Horde (miễn phí) → poster dự phòng.',
+    sub: 'Prompt gửi thẳng tới engine ảnh thật của server: ComfyUI cục bộ → Pollinations AI (miễn phí) → AI Horde → poster dự phòng.',
     ideaBtn: 'Gợi ý prompt',
     styleLabel: 'Phong cách',
     ratioLabel: 'Tỉ lệ khung hình',
@@ -60,11 +60,12 @@ const STRINGS = {
     doneMsg: 'Đã tạo ảnh',
     failedMsg: 'Tạo ảnh thất bại',
     cancelled: 'Đã dừng tạo ảnh',
-    provider: { comfyui: 'ComfyUI', aihorde: 'AI Horde', poster: 'Poster thử nghiệm' },
+    provider: { comfyui: 'ComfyUI', pollinations: 'Pollinations AI', aihorde: 'AI Horde', poster: 'Poster dự phòng (không phải AI)' },
     engineTitle: 'Engine ảnh',
     engineComfy: 'ComfyUI cục bộ đang hoạt động — ảnh AI thật, nhanh.',
+    enginePollinations: 'Pollinations AI (miễn phí, không cần key) — ảnh AI thật, thường 5–30 giây mỗi ảnh.',
     engineHorde: 'AI Horde (miễn phí) — ảnh AI thật, mỗi ảnh có thể chờ 1–5 phút.',
-    enginePoster: 'Chưa có ComfyUI — sẽ dùng AI Horde; nếu quá tải thì trả về poster thử nghiệm sinh từ prompt của bạn.',
+    enginePoster: 'Nếu mọi engine AI đều lỗi, server trả về poster dự phòng sinh từ prompt của bạn (không phải ảnh AI).',
     notePersist: 'Ảnh AI dung lượng lớn chỉ giữ trong phiên này — bấm tải xuống để lưu máy. Poster được lưu vào thư viện.',
     download: 'Tải xuống',
     save: 'Lưu vào thư viện',
@@ -74,7 +75,7 @@ const STRINGS = {
   en: {
     eyebrow: 'AI IMAGE STUDIO',
     heading: 'Describe your idea',
-    sub: 'Prompts go straight to the server’s real image engines: local ComfyUI → AI Horde (free) → poster fallback.',
+    sub: 'Prompts go straight to the server’s real image engines: local ComfyUI → Pollinations AI (free) → AI Horde → poster fallback.',
     ideaBtn: 'Suggest a prompt',
     styleLabel: 'Style',
     ratioLabel: 'Aspect ratio',
@@ -90,11 +91,12 @@ const STRINGS = {
     doneMsg: 'Images generated',
     failedMsg: 'Image generation failed',
     cancelled: 'Generation stopped',
-    provider: { comfyui: 'ComfyUI', aihorde: 'AI Horde', poster: 'Test poster' },
+    provider: { comfyui: 'ComfyUI', pollinations: 'Pollinations AI', aihorde: 'AI Horde', poster: 'Poster fallback (not AI)' },
     engineTitle: 'Image engine',
     engineComfy: 'Local ComfyUI is online — real AI images, fast.',
+    enginePollinations: 'Pollinations AI (free, no key) — real AI images, usually 5–30 seconds each.',
     engineHorde: 'AI Horde (free) — real AI images, allow 1–5 minutes per image.',
-    enginePoster: 'No ComfyUI detected — AI Horde is used; if overloaded a prompt-derived test poster is returned.',
+    enginePoster: 'If every AI engine fails, the server returns a prompt-derived poster fallback (not AI-generated).',
     notePersist: 'Large AI images live only in this session — download to keep them. Posters are saved to the gallery.',
     download: 'Download',
     save: 'Save to gallery',
@@ -205,9 +207,11 @@ const CreateImage = () => {
   };
 
   const download = (item) => {
+    const data = item.image || '';
+    const ext = data.startsWith('data:image/svg') ? 'svg' : data.startsWith('data:image/jpeg') ? 'jpg' : 'png';
     const a = document.createElement('a');
-    a.href = item.image;
-    a.download = `ai-social-${item.id}.${(item.image || '').startsWith('data:image/svg') ? 'svg' : 'png'}`;
+    a.href = data;
+    a.download = `ai-social-${item.id}.${ext}`;
     a.click();
   };
 
@@ -218,7 +222,7 @@ const CreateImage = () => {
 
   const engineText = !engine
     ? (lang === 'vi' ? 'Đang kiểm tra engine ảnh trên server…' : 'Checking image engines on the server…')
-    : engine.comfyui?.available ? T.engineComfy : engine.comfyui ? T.engineHorde : T.enginePoster;
+    : engine.comfyui?.available ? T.engineComfy : T.enginePollinations;
 
   return (
     <div className="ci-page">
