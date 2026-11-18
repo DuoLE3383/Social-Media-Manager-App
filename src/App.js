@@ -65,7 +65,7 @@ function App() {
         <Route path="/privacy/data-deletion" element={<DataDeletion />} />
         <Route
           path="/login"
-          element={!isAuthenticated ? <Login onLogin={handleLogin} /> : <Navigate to="/prompts" />}
+          element={!isAuthenticated ? <Login onLogin={handleLogin} /> : <Navigate to="/ai-library" />}
         />
         {/* All authenticated routes share the AppShell layout (left sidebar + topbar). */}
         <Route
@@ -85,7 +85,7 @@ function App() {
                   <Route path="/ai-library" element={<AILibrary ref={libraryRef} user={user} />} />
                   <Route path="/settings" element={<Connections user={user} />} />
                   <Route path="/profile" element={<Profile user={user} />} />
-                  <Route path="*" element={<Navigate to="/prompts" />} />
+                  <Route path="*" element={<Navigate to="/ai-library" />} />
                 </Routes>
               </AppShell>
             ) : (

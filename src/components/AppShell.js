@@ -59,7 +59,7 @@ const AppShell = ({ user, theme, onToggleTheme, onLogout, onCreateVideo, childre
   const [mobileOpen, setMobileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const routeInfo = ROUTE_TITLES[location.pathname] || { title: 'Social Studio', sub: '' };
+  const routeInfo = ROUTE_TITLES[location.pathname] || { title: 'AI Social', sub: '' };
 
   const handleNavClick = (e, to) => {
     if (to === location.pathname) {
@@ -76,9 +76,9 @@ const AppShell = ({ user, theme, onToggleTheme, onLogout, onCreateVideo, childre
       {/* Sidebar */}
       <aside className={`app-sidebar${mobileOpen ? ' mobile-open' : ''}`}>
         <div className="app-sidebar-brand">
-          <Link to="/prompts" className="app-brand-link" onClick={() => setMobileOpen(false)}>
+          <Link to="/ai-library" className="app-brand-link" onClick={() => setMobileOpen(false)}>
             <span className="app-brand-mark">✦</span>
-            <span className="app-brand-text">Social Studio</span>
+            <span className="app-brand-text">AI Social</span>
           </Link>
           <button className="app-sidebar-close" type="button" onClick={() => setMobileOpen(false)} aria-label="Close menu">
             <FontAwesomeIcon icon={faTimes} />

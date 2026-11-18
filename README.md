@@ -1,4 +1,4 @@
-# Social Studio
+# AI Social
 
 A React workspace for social media planning and AI-assisted drafting. It includes 15 prompt workflows, editable prompts, browser-local brand context and run history, an Ollama/OpenAI-compatible API, optional Supabase email authentication, and a Supabase starter schema with row-level security.
 
@@ -66,7 +66,7 @@ The API refreshes stored Threads tokens before publishing when they are within s
 - Public interactive deletion page: `https://<your-deployed-domain>/privacy/data-deletion`.
 - Meta data-deletion callback: `https://<your-deployed-domain>/api/meta/data-deletion`. Configure this callback in the Meta app's data deletion settings. Requests are accepted only after validating Meta's signed request, and delete Page-token records associated with that Facebook app-scoped user ID.
 - Apply both SQL files in `supabase/migrations/` before enabling this callback. The second migration adds the Facebook user ID to Page-token records.
-- Signed-in users can permanently delete their Social Studio account from the public deletion page after typing `DELETE` and confirming. The API verifies their Supabase session and uses the server-only service role to delete the auth user; foreign-key cascades remove associated workspace rows.
+- Signed-in users can permanently delete their AI Social account from the public deletion page after typing `DELETE` and confirming. The API verifies their Supabase session and uses the server-only service role to delete the auth user; foreign-key cascades remove associated workspace rows.
 - Upload `public/social-studio-meta-app-icon-1024.png` as the Meta app icon. `public/meta-app-icon.html` is also a browser export utility, and `public/social-studio-meta-app-icon.svg` is its vector source.
 
 Meta must be able to reach the deletion instructions and callback over public HTTPS. Localhost URLs are for local preview only and cannot be submitted as production URLs.

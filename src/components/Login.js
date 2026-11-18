@@ -25,7 +25,7 @@ export default function Login({ onLogin }) {
   };
 
   return <div className="login-container"><div className="row justify-content-center"><div className="col-md-6 col-lg-4"><div className="card shadow-lg"><div className="card-body p-5">
-    <div className="text-center mb-4"><div className="login-mark">✦</div><h1 className="h3 card-title">Social Studio</h1><p className="text-muted">A calmer workspace for planning and creating social content.</p></div>
+    <div className="text-center mb-4"><div className="login-mark">✦</div><h1 className="h3 card-title">AI Social</h1><p className="text-muted">Create, manage and publish AI-generated videos and images.</p></div>
     {supabase ? <div className="alert alert-success small">Secure email authentication is enabled with Supabase.</div> : <div className="alert alert-warning small">Demo sign-in stores a local profile in this browser. Configure Supabase Auth before using this app with real user accounts.</div>}
     {error && <div className="alert alert-danger" role="alert">{error}</div>}
     {message && <div className="alert alert-info" role="status">{message}</div>}

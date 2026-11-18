@@ -21,7 +21,7 @@ export default function DataDeletion() {
   const deleteAccount = async (event) => {
     event.preventDefault();
     if (confirmation !== 'DELETE') return;
-    if (!window.confirm('Permanently delete your Social Studio account and its stored data? This cannot be undone.')) return;
+    if (!window.confirm('Permanently delete your AI Social account and its stored data? This cannot be undone.')) return;
     setBusy(true); setError('');
     try {
       const { data } = await supabase.auth.getSession();
@@ -37,20 +37,20 @@ export default function DataDeletion() {
     finally { setBusy(false); }
   };
 
-  if (deleted) return <main className="deletion-page"><section className="deletion-card"><span className="eyebrow">PRIVACY</span><h1>Account deleted</h1><p>Your Social Studio account and its associated workspace data have been deleted.</p><Link className="btn btn-primary" to="/login">Return to sign in</Link></section></main>;
+  if (deleted) return <main className="deletion-page"><section className="deletion-card"><span className="eyebrow">PRIVACY</span><h1>Account deleted</h1><p>Your AI Social account and its associated workspace data have been deleted.</p><Link className="btn btn-primary" to="/login">Return to sign in</Link></section></main>;
 
   return <main className="deletion-page"><section className="deletion-card">
     <span className="eyebrow">PRIVACY &amp; DATA</span>
     <h1>Data deletion</h1>
     {hasMetaRequestCode && <div className="alert alert-success" role="status">Meta’s data deletion callback completed. To check for any remaining connected Pages, sign in and disconnect them from Connections.</div>}
-    <p>Social Studio stores Facebook Page access tokens so you can publish to Pages you manage. It also stores workspace information such as your brand voice and prompt history when you use a signed-in account.</p>
+    <p>AI Social stores Facebook Page access tokens so you can publish to Pages you manage. It also stores workspace information such as your brand voice and prompt history when you use a signed-in account.</p>
     <h2>Remove Facebook data</h2>
     <ol>
-      <li>Sign in to Social Studio and open <Link to="/settings">Connections</Link>.</li>
-      <li>Select <strong>Disconnect</strong> for each connected Facebook Page. This removes its saved access token from Social Studio.</li>
-      <li>You can also remove Social Studio from your Facebook account’s Business Integrations settings to revoke its Facebook permissions.</li>
+      <li>Sign in to AI Social and open <Link to="/settings">Connections</Link>.</li>
+      <li>Select <strong>Disconnect</strong> for each connected Facebook Page. This removes its saved access token from AI Social.</li>
+      <li>You can also remove AI Social from your Facebook account’s Business Integrations settings to revoke its Facebook permissions.</li>
     </ol>
-    <h2>Delete your Social Studio account</h2>
+    <h2>Delete your AI Social account</h2>
     {supabase ? <>
       <p>Sign in with the account you want to delete, enter <strong>DELETE</strong>, then confirm. This permanently removes your account and associated workspace records, including profile, brands, prompt templates, content, metrics, settings, prompt history, and connected Page tokens.</p>
       <form onSubmit={deleteAccount}>

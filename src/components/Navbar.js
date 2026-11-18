@@ -7,8 +7,8 @@ const Navbar = ({ user, onLogout, theme, onToggleTheme }) => {
   return (
     <nav className="navbar navbar-expand-lg navbar-dark bg-primary sticky-top">
       <div className="container">
-        <Link className="navbar-brand fw-bold" to="/prompts">
-          ✦ Social Studio
+        <Link className="navbar-brand fw-bold" to="/ai-library">
+          ✦ AI Social
         </Link>
         
         <button 

@@ -84,7 +84,7 @@ if (!(await portIsAvailable(apiPort))) {
     startBackend = false;
     console.log(`Reusing the API already listening on port ${apiPort}.`);
   } catch {
-    throw new Error(`Port ${apiPort} is busy but no Social Studio API is responding there. Stop that process or set API_PORT to a free port.`);
+    throw new Error(`Port ${apiPort} is busy but no AI Social API is responding there. Stop that process or set API_PORT to a free port.`);
   }
 }
 
