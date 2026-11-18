@@ -11,6 +11,8 @@ import {
   faVideo,
   faImage,
   faWandMagicSparkles,
+  faLock,
+  faSignInAlt,
   faCrown,
   faMoon,
   faSun,
@@ -43,8 +45,11 @@ const NAV_LABELS = {
 //   3. MANAGE & PUBLISH — review posts (Feed), schedule them (Publish Plan), measure (Reports)
 //   4. IMAGE & VIDEO    — supporting media produced last (Create Image → AI Library)
 //   5. ACCOUNT          — connections
-// Only ONE item per route (the old duplicate "Tạo Video" + "Thư viện AI" pair
-// both pointed at /ai-library — video creation lives inside the AI Library page).
+// Items with locked:true burn AI/server resources or touch connected accounts,
+// so guests (signed-out visitors in trial mode) see a small lock badge and a
+// "sign in to continue" interstitial instead of the page. Only ONE item per
+// route (the old duplicate "Tạo Video" + "Thư viện AI" pair both pointed at
+// /ai-library — video creation lives inside the AI Library page).
 const NAV_SECTIONS = [
   {
     items: [
@@ -54,29 +59,29 @@ const NAV_SECTIONS = [
   {
     labelKey: 'content',
     items: [
-      { to: '/smart-prompt', icon: faWandMagicSparkles, labelKey: 'smartPrompt', activeOn: ['/smart-prompt'] },
-      { to: '/prompts', icon: faRobot, labelKey: 'agents', activeOn: ['/prompts'] },
+      { to: '/smart-prompt', icon: faWandMagicSparkles, labelKey: 'smartPrompt', activeOn: ['/smart-prompt'], locked: true },
+      { to: '/prompts', icon: faRobot, labelKey: 'agents', activeOn: ['/prompts'], locked: true },
     ],
   },
   {
     labelKey: 'manage',
     items: [
       { to: '/feed', icon: faComments, labelKey: 'feed', activeOn: ['/feed'] },
-      { to: '/publish-plan', icon: faCalendarDays, labelKey: 'publish', activeOn: ['/publish-plan'] },
+      { to: '/publish-plan', icon: faCalendarDays, labelKey: 'publish', activeOn: ['/publish-plan'], locked: true },
       { to: '/reports', icon: faChartLine, labelKey: 'reports', activeOn: ['/reports'] },
     ],
   },
   {
     labelKey: 'media',
     items: [
-      { to: '/create-image', icon: faImage, labelKey: 'createImage', activeOn: ['/create-image'] },
-      { to: '/ai-library', icon: faVideo, labelKey: 'library', activeOn: ['/ai-library'] },
+      { to: '/create-image', icon: faImage, labelKey: 'createImage', activeOn: ['/create-image'], locked: true },
+      { to: '/ai-library', icon: faVideo, labelKey: 'library', activeOn: ['/ai-library'], locked: true },
     ],
   },
   {
     labelKey: 'account',
     items: [
-      { to: '/settings', icon: faUsers, labelKey: 'accounts', activeOn: ['/settings'] },
+      { to: '/settings', icon: faUsers, labelKey: 'accounts', activeOn: ['/settings'], locked: true },
     ],
   },
 ];
@@ -135,6 +140,17 @@ const AppShell = ({ user, theme, onToggleTheme, onLogout, children }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [lang, setLang] = useLang();
+  // Guest mode: signed-out visitors can browse the light pages for free; the
+  // resource-heavy / account-related pages show a sign-in interstitial instead.
+  const isGuest = !user;
+  const loginHref = `/login?next=${encodeURIComponent(location.pathname)}`;
+  const [guestBannerClosed, setGuestBannerClosed] = useState(() => {
+    try { return sessionStorage.getItem('aiSocialGuestBanner') === '1'; } catch { return false; }
+  });
+  const dismissGuestBanner = () => {
+    setGuestBannerClosed(true);
+    try { sessionStorage.setItem('aiSocialGuestBanner', '1'); } catch { /* private mode */ }
+  };
   // NAV_LABELS is keyed by labelKey with per-language values: { overview: {vi, en}, ... }
   const labelFor = (key) => NAV_LABELS[key]?.[lang] ?? NAV_LABELS[key]?.vi ?? '';
 
@@ -180,6 +196,7 @@ const AppShell = ({ user, theme, onToggleTheme, onLogout, children }) => {
                     onClick={(e) => handleNavClick(e, item.to)}
                   >
                     <FontAwesomeIcon icon={item.icon} /> <span>{labelFor(item.labelKey)}</span>
+                    {isGuest && item.locked && <FontAwesomeIcon icon={faLock} className="app-nav-lock" />}
                   </Link>
                 );
               })}
@@ -197,15 +214,27 @@ const AppShell = ({ user, theme, onToggleTheme, onLogout, children }) => {
             <button className="app-pro-btn" type="button">{lang === 'vi' ? 'Nâng cấp' : 'Upgrade'}</button>
           </div>
           <div className="app-sidebar-user">
-            <img
-              src={user?.picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'User')}&background=ecebff&color=5047a8`}
-              alt="Profile"
-              className="app-sidebar-avatar"
-            />
-            <div className="app-sidebar-user-info">
-              <div className="app-sidebar-user-name">{user?.name || 'User'}</div>
-              <Link className="app-sidebar-user-link" to="/profile" onClick={() => setMobileOpen(false)}>{lang === 'vi' ? 'Xem hồ sơ' : 'View profile'}</Link>
-            </div>
+            {isGuest ? (
+              <>
+                <span className="app-sidebar-avatar app-guest-avatar"><FontAwesomeIcon icon={faUser} /></span>
+                <div className="app-sidebar-user-info">
+                  <div className="app-sidebar-user-name">{lang === 'vi' ? 'Khách' : 'Guest'}</div>
+                  <Link className="app-sidebar-user-link" to={loginHref}>{lang === 'vi' ? 'Đăng nhập để mở khoá AI' : 'Sign in to unlock AI'}</Link>
+                </div>
+              </>
+            ) : (
+              <>
+                <img
+                  src={user?.picture || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'User')}&background=ecebff&color=5047a8`}
+                  alt="Profile"
+                  className="app-sidebar-avatar"
+                />
+                <div className="app-sidebar-user-info">
+                  <div className="app-sidebar-user-name">{user?.name || 'User'}</div>
+                  <Link className="app-sidebar-user-link" to="/profile" onClick={() => setMobileOpen(false)}>{lang === 'vi' ? 'Xem hồ sơ' : 'View profile'}</Link>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </aside>
@@ -228,6 +257,11 @@ const AppShell = ({ user, theme, onToggleTheme, onLogout, children }) => {
             <button className="app-icon-btn" type="button" onClick={onToggleTheme} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>
               <FontAwesomeIcon icon={theme === 'dark' ? faSun : faMoon} />
             </button>
+            {isGuest ? (
+              <Link className="app-login-btn" to={loginHref}>
+                <FontAwesomeIcon icon={faSignInAlt} /> {lang === 'vi' ? 'Đăng nhập' : 'Sign in'}
+              </Link>
+            ) : (
             <div className={`app-user-menu${menuOpen ? ' open' : ''}`}>
               <button className="app-user-trigger" type="button" onClick={() => setMenuOpen((v) => !v)}>
                 <img
@@ -252,8 +286,24 @@ const AppShell = ({ user, theme, onToggleTheme, onLogout, children }) => {
                 </>
               )}
             </div>
+            )}
           </div>
         </header>
+
+        {isGuest && !guestBannerClosed && (
+          <div className="app-guest-banner">
+            <FontAwesomeIcon icon={faWandMagicSparkles} className="app-guest-banner-icon" />
+            <div className="app-guest-banner-text">
+              {lang === 'vi'
+                ? <>Bạn đang <b>dùng thử</b> — duyệt nội dung tự do. Tính năng AI (ảnh, video, agent) và liên quan tài khoản cần <b>đăng nhập</b>.</>
+                : <>You are in <b>trial mode</b> — browse freely. AI features (image, video, agents) and account tools need <b>sign-in</b>.</>}
+            </div>
+            <Link className="app-login-btn app-guest-banner-btn" to={loginHref}>{lang === 'vi' ? 'Đăng nhập' : 'Sign in'}</Link>
+            <button className="app-guest-banner-close" type="button" onClick={dismissGuestBanner} aria-label={lang === 'vi' ? 'Ẩn thông báo' : 'Dismiss notice'}>
+              <FontAwesomeIcon icon={faTimes} />
+            </button>
+          </div>
+        )}
 
         <main className="app-content">{children}</main>
       </div>

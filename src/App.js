@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 import Login from './components/Login';
@@ -16,6 +16,19 @@ import Connections from './components/Connections';
 import DataDeletion from './components/DataDeletion';
 import AILibrary from './components/AILibrary';
 import AppShell from './components/AppShell';
+import LoginRequired from './components/LoginRequired';
+
+// Pseudo user shown to signed-out visitors so sample-data pages greet them
+// properly ("Xin chào, Khách") instead of falling back to English "User".
+const GUEST_USER = { id: 'guest', name: 'Khách', email: '', picture: '' };
+
+// After a successful sign-in, send the user back to the page that asked for
+// the login (?next=/create-image) or to the Overview dashboard.
+function PostLoginRedirect() {
+  const [params] = useSearchParams();
+  const next = params.get('next');
+  return <Navigate to={next && next.startsWith('/') ? next : '/dashboard'} replace />;
+}
 
 function App() {
   const [user, setUser] = useState(null);
@@ -69,37 +82,38 @@ function App() {
         <Route path="/privacy/data-deletion" element={<DataDeletion />} />
         <Route
           path="/login"
-          element={!isAuthenticated ? <Login onLogin={handleLogin} /> : <Navigate to="/dashboard" />}
+          element={!isAuthenticated ? <Login onLogin={handleLogin} /> : <PostLoginRedirect />}
         />
-        {/* All authenticated routes share the AppShell layout (left sidebar + topbar). */}
+        {/* Guest-friendly layout: the shell always renders; only resource-heavy
+            AI pages and account-related pages are gated behind sign-in. Light
+            pages (Overview, Feed, Reports) run on sample data for free trials. */}
         <Route
           path="/*"
           element={
-            isAuthenticated ? (
-              <AppShell
-                user={user}
-                theme={theme}
-                onToggleTheme={() => setTheme((c) => (c === 'dark' ? 'light' : 'dark'))}
-                onLogout={handleLogout}
-              >
-                <Routes>
-                  <Route path="/dashboard" element={<Overview user={user} />} />
-                  <Route path="/overview" element={<Overview user={user} />} />
-                  <Route path="/feed" element={<Feed user={user} />} />
-                  <Route path="/publish-plan" element={<PublishPlan user={user} />} />
-                  <Route path="/reports" element={<Reports user={user} />} />
-                  <Route path="/prompts" element={<AgentStudio user={user} />} />
-                  <Route path="/create-image" element={<CreateImage user={user} />} />
-                  <Route path="/smart-prompt" element={<SmartPrompt user={user} />} />
-                  <Route path="/ai-library" element={<AILibrary user={user} />} />
-                  <Route path="/settings" element={<Connections user={user} />} />
-                  <Route path="/profile" element={<Profile user={user} />} />
-                  <Route path="*" element={<Navigate to="/dashboard" />} />
-                </Routes>
-              </AppShell>
-            ) : (
-              <Navigate to="/login" />
-            )
+            <AppShell
+              user={user}
+              theme={theme}
+              onToggleTheme={() => setTheme((c) => (c === 'dark' ? 'light' : 'dark'))}
+              onLogout={handleLogout}
+            >
+              <Routes>
+                {/* Free trial pages: light, sample data, no sign-in needed. */}
+                <Route path="/dashboard" element={<Overview user={user || GUEST_USER} />} />
+                <Route path="/overview" element={<Overview user={user || GUEST_USER} />} />
+                <Route path="/feed" element={<Feed user={user || GUEST_USER} />} />
+                <Route path="/reports" element={<Reports user={user || GUEST_USER} />} />
+                {/* Resource-heavy AI pages: require sign-in. */}
+                <Route path="/prompts" element={isAuthenticated ? <AgentStudio user={user} /> : <LoginRequired page="agents" />} />
+                <Route path="/smart-prompt" element={isAuthenticated ? <SmartPrompt user={user} /> : <LoginRequired page="smartPrompt" />} />
+                <Route path="/create-image" element={isAuthenticated ? <CreateImage user={user} /> : <LoginRequired page="createImage" />} />
+                <Route path="/ai-library" element={isAuthenticated ? <AILibrary user={user} /> : <LoginRequired page="library" />} />
+                {/* Account-related pages: require sign-in. */}
+                <Route path="/publish-plan" element={isAuthenticated ? <PublishPlan user={user} /> : <LoginRequired page="publish" />} />
+                <Route path="/settings" element={isAuthenticated ? <Connections user={user} /> : <LoginRequired page="accounts" />} />
+                <Route path="/profile" element={isAuthenticated ? <Profile user={user} /> : <LoginRequired page="accounts" />} />
+                <Route path="*" element={<Navigate to="/dashboard" replace />} />
+              </Routes>
+            </AppShell>
           }
         />
       </Routes>

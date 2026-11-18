@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useLang } from '../lib/i18n';
 
 export default function Login({ onLogin }) {
   const [email, setEmail] = useState('');
@@ -7,6 +9,7 @@ export default function Login({ onLogin }) {
   const [error, setError] = useState('');
   const [creatingAccount, setCreatingAccount] = useState(false);
   const [message, setMessage] = useState('');
+  const [lang] = useLang();
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -34,5 +37,6 @@ export default function Login({ onLogin }) {
       <button type="submit" className="btn btn-primary btn-lg w-100">{supabase ? (creatingAccount ? 'Create account' : 'Sign in') : 'Continue in demo mode'}</button>
     </form>
     {supabase && <button type="button" className="btn btn-link w-100 mt-2" onClick={() => { setCreatingAccount(!creatingAccount); setError(''); setMessage(''); }}>{creatingAccount ? 'Already registered? Sign in' : 'New here? Create an account'}</button>}
+    <div className="text-center mt-3"><Link className="login-try-link" to="/dashboard">{lang === 'vi' ? 'Xem thử không cần đăng nhập →' : 'Try it without signing in →'}</Link></div>
   </div></div></div></div></div>;
 }

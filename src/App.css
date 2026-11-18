@@ -1878,3 +1878,97 @@ html[data-theme="dark"] .as-chip { background: #26243a; color: #b5b1d8; }
 html[data-theme="dark"] .as-curl-box .as-ghost-btn { background: #26243a; border-color: #4a4570; color: #c5c2e0; }
 html[data-theme="dark"] .as-wiz-nav { border-top-color: #322f4a; }
 html[data-theme="dark"] .as-retry-btn { background: #26243a; border-color: #5a3a3a; color: #e08a80; }
+
+/* ---------- Guest trial mode (no forced login) ---------- */
+/* Lock badge on gated sidebar items, shown only to signed-out visitors */
+.app-nav-item span { flex: 1; min-width: 0; }
+.app-nav-lock { flex: 0 0 auto; font-size: .68rem; opacity: .75; }
+.app-nav-item.active .app-nav-lock { opacity: .95; }
+
+/* Purple sign-in pill used in the topbar, guest banner and interstitial */
+.app-login-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: #6158d9; color: #fff; border: 0; border-radius: 9px;
+  padding: 9px 16px; font-size: .85rem; font-weight: 700;
+  text-decoration: none; cursor: pointer; white-space: nowrap;
+  transition: background .15s;
+}
+.app-login-btn:hover { background: #514cc4; color: #fff; text-decoration: none; }
+.app-login-btn svg { font-size: .8rem; }
+
+/* Slim trial-mode banner under the topbar */
+.app-guest-banner {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 10px clamp(18px, 3vw, 32px);
+  background: #f4f3ff; border-bottom: 1px solid #e4e3ee;
+  font-size: .82rem; color: #3c3a55;
+}
+.app-guest-banner-icon { color: #6158d9; font-size: 1rem; }
+.app-guest-banner-text { flex: 1; min-width: 220px; line-height: 1.45; }
+.app-guest-banner-text b { color: #5047a8; }
+.app-guest-banner-btn { padding: 7px 14px; font-size: .78rem; }
+.app-guest-banner-close {
+  width: 30px; height: 30px; border-radius: 8px; border: 0;
+  background: transparent; color: #6f6c85; cursor: pointer;
+  display: grid; place-items: center; font-size: .8rem;
+}
+.app-guest-banner-close:hover { background: #e6e3f8; color: #3c3a55; }
+html[data-theme="dark"] .app-guest-banner { background: #262539; border-bottom-color: #34334a; color: #c8c6d6; }
+html[data-theme="dark"] .app-guest-banner-text b { color: #a5a0ff; }
+html[data-theme="dark"] .app-guest-banner-close { color: #9a98ac; }
+html[data-theme="dark"] .app-guest-banner-close:hover { background: #34334a; color: #e5e3f0; }
+
+/* Guest block in the sidebar footer (replaces the profile block) */
+.app-guest-avatar {
+  display: grid; place-items: center; background: #3a3568; color: #c5c2e0;
+  font-size: .8rem;
+}
+html[data-theme="light"] .app-guest-avatar { background: #3a3568; }
+
+/* Sign-in interstitial shown in place of gated pages */
+.gated-wrap { min-height: 62vh; display: grid; place-items: center; padding: 40px 16px; }
+.gated-card {
+  max-width: 540px; width: 100%;
+  background: #fff; border: 1px solid #e4e3ee; border-radius: 16px;
+  padding: 34px 32px 30px; text-align: center;
+  box-shadow: 0 18px 44px -26px rgba(80, 70, 160, .3);
+}
+.gated-icon {
+  width: 58px; height: 58px; margin: 0 auto 12px; border-radius: 16px;
+  background: linear-gradient(140deg, #eceaff, #dbd7ff); color: #5047a8;
+  display: grid; place-items: center; font-size: 1.35rem;
+}
+.gated-lock {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: #f4f3ff; color: #5047a8; border-radius: 999px;
+  padding: 4px 12px; font-size: .72rem; font-weight: 700; margin-bottom: 10px;
+}
+.gated-card h2 { font-weight: 750; letter-spacing: -.03em; font-size: 1.25rem; margin: 0 0 10px; }
+.gated-reason { color: #555468; font-size: .9rem; margin: 0 auto 6px; max-width: 420px; }
+.gated-intro { color: #8b89a0; font-size: .78rem; margin: 0 auto 16px; max-width: 420px; }
+.gated-benefits {
+  text-align: left; background: #f8f7ff; border: 1px solid #ece9f5;
+  border-radius: 12px; padding: 14px 18px; margin: 0 auto 20px; max-width: 440px;
+}
+.gated-benefits-title { font-size: .78rem; font-weight: 700; color: #5047a8; margin: 0 0 8px; }
+.gated-benefits ul { margin: 0; padding-left: 18px; }
+.gated-benefits li { font-size: .82rem; color: #555468; margin: 4px 0; }
+.gated-actions { display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap; }
+.gated-login { padding: 11px 26px; font-size: .9rem; }
+.gated-back { color: #6f6c85; font-size: .85rem; text-decoration: none; }
+.gated-back:hover { color: #5047a8; text-decoration: underline; }
+html[data-theme="dark"] .gated-card { background: #1e1c2e; border-color: #322f4a; box-shadow: 0 18px 44px -26px rgba(0, 0, 0, .6); }
+html[data-theme="dark"] .gated-icon { background: #26243a; color: #a5a0ff; }
+html[data-theme="dark"] .gated-lock { background: #26243a; color: #a5a0ff; }
+html[data-theme="dark"] .gated-card h2 { color: #e8e7f0; }
+html[data-theme="dark"] .gated-reason { color: #b5b3c8; }
+html[data-theme="dark"] .gated-intro { color: #8d89ad; }
+html[data-theme="dark"] .gated-benefits { background: #171624; border-color: #322f4a; }
+html[data-theme="dark"] .gated-benefits-title { color: #a5a0ff; }
+html[data-theme="dark"] .gated-benefits li { color: #b5b3c8; }
+html[data-theme="dark"] .gated-back { color: #9a98ac; }
+html[data-theme="dark"] .gated-back:hover { color: #a5a0ff; }
+
+/* "Try without signing in" link on the login page */
+.login-try-link { color: #6f6c85; font-size: .85rem; text-decoration: none; }
+.login-try-link:hover { color: #5047a8; text-decoration: underline; }
