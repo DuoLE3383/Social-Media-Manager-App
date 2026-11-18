@@ -37,7 +37,10 @@ module.exports = {
       name: 'ai-social-web',
       cwd: __dirname,
       script: 'node_modules/serve/build/main.js',
-      args: '-s build -l 3000',
+      // Array form is required: a single string ('-s build -l 3000') is NOT split
+      // by PM2, so serve silently ignored it and bound a RANDOM port
+      // (logs showed "Accepting connections at http://localhost:36929").
+      args: ['-s', 'build', '-l', '3000', '--no-clipboard'],
       instances: 1,
       exec_mode: 'fork',
       watch: false,
