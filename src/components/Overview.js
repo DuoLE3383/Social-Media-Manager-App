@@ -9,6 +9,7 @@ import {
   faArrowUp,
   faArrowDown,
   faWandMagicSparkles,
+  faRobot,
   faBolt,
   faClock,
 } from '@fortawesome/free-solid-svg-icons';
@@ -65,7 +66,7 @@ const Overview = ({ user }) => {
           <h2>Xin chào, {user?.name || 'User'} 👋</h2>
           <p className="ov-greeting-sub">Đây là hoạt động AI Social của bạn trong 7 ngày qua.</p>
         </div>
-        <Link to="/create-image" className="ov-cta">
+        <Link to="/smart-prompt" className="ov-cta">
           <FontAwesomeIcon icon={faBolt} /> Tạo nội dung mới
         </Link>
       </div>
@@ -146,25 +147,31 @@ const Overview = ({ user }) => {
           </div>
         </header>
         <div className="ov-quick-grid">
-          <Link to="/ai-library" className="ov-quick-item">
-            <FontAwesomeIcon icon={faVideo} />
-            <strong>Create Video</strong>
-            <small>Tạo video 9:16 bằng AI</small>
+          {/* Same order as the sidebar pipeline: content first, media last. */}
+          <Link to="/smart-prompt" className="ov-quick-item">
+            <FontAwesomeIcon icon={faWandMagicSparkles} />
+            <strong>Smart Prompt</strong>
+            <small>Ý tưởng nội dung tức thì</small>
+          </Link>
+          <Link to="/prompts" className="ov-quick-item">
+            <FontAwesomeIcon icon={faRobot} />
+            <strong>Agent Builder</strong>
+            <small>Viết bài tự động theo kịch bản</small>
+          </Link>
+          <Link to="/publish-plan" className="ov-quick-item">
+            <FontAwesomeIcon icon={faCalendarCheck} />
+            <strong>Publish Plan</strong>
+            <small>Lên lịch đăng bài</small>
           </Link>
           <Link to="/create-image" className="ov-quick-item">
             <FontAwesomeIcon icon={faImage} />
             <strong>Create Image</strong>
             <small>Sinh ảnh từ prompt</small>
           </Link>
-          <Link to="/smart-prompt" className="ov-quick-item">
-            <FontAwesomeIcon icon={faWandMagicSparkles} />
-            <strong>Smart Prompt</strong>
-            <small>Ý tưởng nội dung tức thì</small>
-          </Link>
-          <Link to="/publish-plan" className="ov-quick-item">
-            <FontAwesomeIcon icon={faCalendarCheck} />
-            <strong>Publish Plan</strong>
-            <small>Lên lịch đăng bài</small>
+          <Link to="/ai-library" className="ov-quick-item">
+            <FontAwesomeIcon icon={faVideo} />
+            <strong>Create Video</strong>
+            <small>Tạo video slideshow bằng AI</small>
           </Link>
         </div>
       </section>

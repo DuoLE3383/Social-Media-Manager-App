@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
@@ -25,7 +25,6 @@ function App() {
     return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
   const isAuthenticated = Boolean(user);
-  const libraryRef = useRef(null);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -70,7 +69,7 @@ function App() {
         <Route path="/privacy/data-deletion" element={<DataDeletion />} />
         <Route
           path="/login"
-          element={!isAuthenticated ? <Login onLogin={handleLogin} /> : <Navigate to="/ai-library" />}
+          element={!isAuthenticated ? <Login onLogin={handleLogin} /> : <Navigate to="/dashboard" />}
         />
         {/* All authenticated routes share the AppShell layout (left sidebar + topbar). */}
         <Route
@@ -82,7 +81,6 @@ function App() {
                 theme={theme}
                 onToggleTheme={() => setTheme((c) => (c === 'dark' ? 'light' : 'dark'))}
                 onLogout={handleLogout}
-                onCreateVideo={() => libraryRef.current?.createVideo()}
               >
                 <Routes>
                   <Route path="/dashboard" element={<Overview user={user} />} />
@@ -93,10 +91,10 @@ function App() {
                   <Route path="/prompts" element={<AgentStudio user={user} />} />
                   <Route path="/create-image" element={<CreateImage user={user} />} />
                   <Route path="/smart-prompt" element={<SmartPrompt user={user} />} />
-                  <Route path="/ai-library" element={<AILibrary ref={libraryRef} user={user} />} />
+                  <Route path="/ai-library" element={<AILibrary user={user} />} />
                   <Route path="/settings" element={<Connections user={user} />} />
                   <Route path="/profile" element={<Profile user={user} />} />
-                  <Route path="*" element={<Navigate to="/ai-library" />} />
+                  <Route path="*" element={<Navigate to="/dashboard" />} />
                 </Routes>
               </AppShell>
             ) : (

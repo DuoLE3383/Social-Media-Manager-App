@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faBoxesStacked,
@@ -31,16 +31,20 @@ const NAV_LABELS = {
   createImage: { vi: 'Tạo Ảnh', en: 'Create Image' },
   smartPrompt: { vi: 'Gợi ý thông minh', en: 'Smart Prompt' },
   library: { vi: 'Thư viện AI', en: 'AI Library' },
-  aiStudio: { vi: 'AI STUDIO', en: 'AI STUDIO' },
-  manage: { vi: 'QUẢN LÝ NỘI DUNG', en: 'CONTENT' },
+  content: { vi: 'TẠO NỘI DUNG', en: 'CREATE CONTENT' },
+  manage: { vi: 'QUẢN LÝ & XUẤT BẢN', en: 'MANAGE & PUBLISH' },
+  media: { vi: 'HÌNH ẢNH & VIDEO', en: 'IMAGE & VIDEO' },
   account: { vi: 'TÀI KHOẢN', en: 'ACCOUNT' },
 };
 
-// Menu follows the working flow of the app: see your status first, create with
-// AI, manage the results, then accounts. Each section has an optional labelKey
-// rendered as a group heading. Only ONE item per route (the old duplicate
-// "Tạo Video" + "Thư viện AI" pair both pointed at /ai-library — video
-// creation now lives inside the AI Library page, which has its own button).
+// Menu follows the real content pipeline, top to bottom:
+//   1. Overview (see the big picture)
+//   2. CREATE CONTENT   — ideas first (Smart Prompt), then writing (Agent Builder)
+//   3. MANAGE & PUBLISH — review posts (Feed), schedule them (Publish Plan), measure (Reports)
+//   4. IMAGE & VIDEO    — supporting media produced last (Create Image → AI Library)
+//   5. ACCOUNT          — connections
+// Only ONE item per route (the old duplicate "Tạo Video" + "Thư viện AI" pair
+// both pointed at /ai-library — video creation lives inside the AI Library page).
 const NAV_SECTIONS = [
   {
     items: [
@@ -48,12 +52,10 @@ const NAV_SECTIONS = [
     ],
   },
   {
-    labelKey: 'aiStudio',
+    labelKey: 'content',
     items: [
-      { to: '/prompts', icon: faRobot, labelKey: 'agents', activeOn: ['/prompts'] },
       { to: '/smart-prompt', icon: faWandMagicSparkles, labelKey: 'smartPrompt', activeOn: ['/smart-prompt'] },
-      { to: '/create-image', icon: faImage, labelKey: 'createImage', activeOn: ['/create-image'] },
-      { to: '/ai-library', icon: faVideo, labelKey: 'library', activeOn: ['/ai-library'] },
+      { to: '/prompts', icon: faRobot, labelKey: 'agents', activeOn: ['/prompts'] },
     ],
   },
   {
@@ -62,6 +64,13 @@ const NAV_SECTIONS = [
       { to: '/feed', icon: faComments, labelKey: 'feed', activeOn: ['/feed'] },
       { to: '/publish-plan', icon: faCalendarDays, labelKey: 'publish', activeOn: ['/publish-plan'] },
       { to: '/reports', icon: faChartLine, labelKey: 'reports', activeOn: ['/reports'] },
+    ],
+  },
+  {
+    labelKey: 'media',
+    items: [
+      { to: '/create-image', icon: faImage, labelKey: 'createImage', activeOn: ['/create-image'] },
+      { to: '/ai-library', icon: faVideo, labelKey: 'library', activeOn: ['/ai-library'] },
     ],
   },
   {
@@ -123,7 +132,6 @@ const isMatch = (activeOn, pathname) => Array.isArray(activeOn) && activeOn.some
 
 const AppShell = ({ user, theme, onToggleTheme, onLogout, children }) => {
   const location = useLocation();
-  const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [lang, setLang] = useLang();
@@ -147,7 +155,7 @@ const AppShell = ({ user, theme, onToggleTheme, onLogout, children }) => {
       {/* Sidebar */}
       <aside className={`app-sidebar${mobileOpen ? ' mobile-open' : ''}`}>
         <div className="app-sidebar-brand">
-          <Link to="/ai-library" className="app-brand-link" onClick={() => setMobileOpen(false)}>
+          <Link to="/dashboard" className="app-brand-link" onClick={() => setMobileOpen(false)}>
             <span className="app-brand-mark"><img src={`${process.env.PUBLIC_URL || ''}/logo-mark.svg`} alt="AI Social logo" /></span>
             <span className="app-brand-text">AI Social</span>
           </Link>
