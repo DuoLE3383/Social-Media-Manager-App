@@ -15,6 +15,7 @@ const COMFYUI_CHECKPOINT = process.env.COMFYUI_CHECKPOINT || 'sd_xl_base_1.0.saf
 // REAL AI images out of the box (no GPU, no API key), so the old "poster SVG"
 // behaviour is only the very last fallback now.
 const POLLINATIONS_URL = 'https://image.pollinations.ai';
+const TEXT_POLLINATIONS_URL = 'https://text.pollinations.ai';
 const IMAGE_PROVIDER_PREF = (process.env.IMAGE_PROVIDER || 'auto').toLowerCase();
 const LLM_MAX_TOKENS = positiveInt(process.env.LLM_MAX_TOKENS, 1024);
 const LLM_TEMPERATURE = clampNumber(Number(process.env.LLM_TEMPERATURE), 0, 1.5, 0.7);
@@ -555,14 +556,15 @@ async function generateHordeThreadsImage(imagePrompt, width = 768, height = 960,
 async function generateThreadsImage(imagePrompt) {
   const prompt = typeof imagePrompt === 'string' ? imagePrompt.trim() : '';
   if (!prompt || prompt.length > 4000) throw metaError('Image prompt is missing or too long.', 400);
+  const englishPrompt = await translatePromptToEnglish(prompt);
   try {
-    const bytes = await generateLocalThreadsImage(prompt);
+    const bytes = await generateLocalThreadsImage(englishPrompt);
     console.log('Threads image generated with local ComfyUI.');
     return bytes;
   } catch (localError) {
     console.warn('Local ComfyUI image generation unavailable; trying free AI Horde:', localError.message);
   }
-  return generateHordeThreadsImage(prompt);
+  return generateHordeThreadsImage(englishPrompt);
 }
 
 async function comfyImageServiceStatus() {
@@ -622,6 +624,40 @@ function posterFallbackSvg(prompt, width = 768, height = 768) {
   return Buffer.from(svg, 'utf8');
 }
 
+// CRITICAL FIX: Flux/SD image models (Pollinations, AI Horde, ComfyUI) are
+// trained on English captions. Vietnamese prompts are tokenised into garbage
+// and the engines return COMPLETELY UNRELATED images (e.g. "ly cà phê sữa đá
+// trên bàn gỗ" returned a portrait of a woman). Detected non-Latin-ASCII
+// prompts are translated to English first via text.pollinations.ai (free,
+// keyless) and the translation is cached so a 4-image batch translates once.
+const translationCache = new Map();
+const NON_ENGLISH_REGEX = /[\u00C0-\u024F\u1E00-\u1EFF]/;
+
+async function translatePromptToEnglish(imagePrompt) {
+  const trimmed = typeof imagePrompt === 'string' ? imagePrompt.trim() : '';
+  if (!trimmed || !NON_ENGLISH_REGEX.test(trimmed)) return trimmed;
+  const cached = translationCache.get(trimmed);
+  if (cached) return cached;
+  const instruction = `Translate this image-generation prompt to English. Reply with ONLY the translated prompt, no quotes, no explanation: ${trimmed}`;
+  try {
+    const response = await fetchWithTimeout(`${TEXT_POLLINATIONS_URL}/${encodeURIComponent(instruction)}`, {}, 25_000);
+    if (response.ok) {
+      const raw = (await response.text()).trim().replace(/^['"\u201c\u2018`]+|['"\u201d\u2019`]+$/g, '').trim();
+      // Sanity gate: keep plausible translations, reject echoes/errors/empty text.
+      if (raw.length >= 2 && raw.length <= 2000 && !/^Translate this image/i.test(raw) && !raw.startsWith('[')) {
+        if (translationCache.size > 200) translationCache.clear();
+        translationCache.set(trimmed, raw);
+        console.log(`Prompt translated to English: "${trimmed.slice(0, 60)}" -> "${raw.slice(0, 60)}"`);
+        return raw;
+      }
+    }
+    console.warn(`Prompt translation returned unusable text (HTTP ${response.status}); using the original prompt.`);
+  } catch (error) {
+    console.warn('Prompt translation unavailable; using the original prompt:', error.message);
+  }
+  return trimmed;
+}
+
 // Free keyless text-to-image (Flux-based). Takes ~5-30 seconds per image and
 // requires nothing but outbound internet, which makes it the default "real AI"
 // engine for deployments without a local GPU.
@@ -666,6 +702,9 @@ async function generatePollinationsImage(imagePrompt, width = 768, height = 768)
 }
 
 async function generateImageWithFallback(prompt, width, height, allowHorde) {
+  // Real AI engines only understand English captions — translate first (cached).
+  // The poster fallback keeps the original text so Vietnamese stays readable.
+  const englishPrompt = await translatePromptToEnglish(prompt);
   // Provider preference (IMAGE_PROVIDER env): auto | comfyui | pollinations | horde | poster.
   // "auto" walks the chain from fastest/cheapest real engine to the poster fallback.
   const chain = ['comfyui', 'pollinations'];
@@ -677,12 +716,12 @@ async function generateImageWithFallback(prompt, width, height, allowHorde) {
   for (const engine of engines) {
     try {
       if (engine === 'comfyui') {
-        const bytes = await generateLocalThreadsImage(prompt, width, height);
+        const bytes = await generateLocalThreadsImage(englishPrompt, width, height);
         console.log('Image generated with local ComfyUI.');
         return { bytes, provider: 'comfyui' };
       }
       if (engine === 'pollinations') {
-        const bytes = await generatePollinationsImage(prompt, width, height);
+        const bytes = await generatePollinationsImage(englishPrompt, width, height);
         console.log('Image generated with Pollinations.');
         return { bytes, provider: 'pollinations' };
       }
@@ -690,7 +729,7 @@ async function generateImageWithFallback(prompt, width, height, allowHorde) {
         // Cap the wait at 280s so the whole request stays under nginx's 360s
         // proxy_read_timeout (deploy/nginx.conf.example).
         const waitMs = Math.min(positiveInt(process.env.HORDE_IMAGE_TIMEOUT_MS, 900_000), 280_000);
-        const bytes = await generateHordeThreadsImage(prompt, width, height, waitMs);
+        const bytes = await generateHordeThreadsImage(englishPrompt, width, height, waitMs);
         return { bytes, provider: 'aihorde' };
       }
       if (engine === 'poster') {
@@ -1350,7 +1389,7 @@ const server = http.createServer(async (req, res) => {
     const comfy = await comfyImageServiceStatus();
     send(res, 200, {
       comfyui: { available: comfy.available, message: comfy.message },
-      pollinations: { available: true, note: 'Free AI image engine (keyless) — usually 5-30 seconds per image. Anonymous limit: ~1 image per 45 seconds per IP (set POLLINATIONS_API_KEY for unlimited).' },
+      pollinations: { available: true, note: 'Free AI image engine (keyless) — usually 5-30 seconds per image. Vietnamese/non-English prompts are auto-translated to English first (image models only understand English). Anonymous limit: ~1 image per 45 seconds per IP (set POLLINATIONS_API_KEY for unlimited).' },
       horde: { available: true, note: 'Free community GPU queue — usually 1-5 minutes per image.' },
       fallback: { available: true, note: 'Poster fallback: a designed cover generated from your prompt (instant, not AI-generated).' },
       preferred: IMAGE_PROVIDER_PREF,
