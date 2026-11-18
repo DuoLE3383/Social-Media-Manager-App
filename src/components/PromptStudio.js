@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { promptTemplates } from '../data/promptTemplates';
 import { supabase } from '../lib/supabase';
 import { apiUrl } from '../lib/api';
@@ -33,13 +33,20 @@ export default function PromptStudio({ user }) {
   const [runningModel, setRunningModel] = useState('');
   const [notice, setNotice] = useState('');
   const [service, setService] = useState({ state: 'checking' });
+  const [serviceRetrying, setServiceRetrying] = useState(false);
   const voiceSaveTimer = useRef(null);
   const runner = usePromptRunner();
 
-  useEffect(() => {
+  const checkService = useCallback((showSpinner = false) => {
+    if (showSpinner) setServiceRetrying(true);
     fetch(apiUrl('/api/health')).then((response) => response.json().then((data) => ({ response, data })))
       .then(({ response, data }) => setService(response.ok ? { state: 'online', ...data } : { state: 'offline' }))
-      .catch(() => setService({ state: 'offline' }));
+      .catch(() => setService({ state: 'offline' }))
+      .finally(() => { if (showSpinner) setServiceRetrying(false); });
+  }, []);
+
+  useEffect(() => {
+    checkService();
     if (supabase && user?.id) {
       supabase.from('user_settings').select('brand_voice').eq('user_id', user.id).maybeSingle()
         .then(({ data }) => { if (data) { setBrandVoice(data.brand_voice || ''); localStorage.setItem('socialMediaBrandVoice', data.brand_voice || ''); } });
@@ -54,7 +61,7 @@ export default function PromptStudio({ user }) {
         });
     }
     return () => clearTimeout(voiceSaveTimer.current);
-  }, [user?.id]);
+  }, [user?.id, checkService]);
 
   useEffect(() => {
     if (service.state === 'online' && !service.premiumModel && tier === 'premium') {
@@ -189,10 +196,17 @@ export default function PromptStudio({ user }) {
     <main className="studio-shell">
       <header className="studio-header">
         <div><span className="eyebrow">SOCIAL MEDIA WORKSPACE</span><h1>Prompt Studio</h1><p>Plan, create, and refine content with 15 reusable workflows.</p></div>
-        <div className={`service-pill ${service.state}`}><span className="status-dot" />{service.state === 'online' ? `${service.provider} · ${service.model}` : service.state === 'checking' ? 'Checking AI service' : 'AI service offline'}</div>
+        <div className={`service-pill ${service.state}`}><span className="status-dot" />{service.state === 'online' ? `${service.provider} · ${service.model}` : service.state === 'checking' ? 'Đang kiểm tra AI…' : 'AI offline'}</div>
       </header>
-      {service.state === 'offline' && <div className="studio-alert">Start the API with <code>npm run server</code>, then make sure Ollama is running or configure a cloud provider in <code>.env</code>.</div>}
-      {service.state === 'online' && ['openai', 'anthropic'].includes(service.provider) && !service.keyConfigured && <div className="studio-alert">The API is running, but its cloud API key is not configured. Add it to the server environment.</div>}
+      {service.state === 'offline' && <div className="studio-alert service-offline-alert">
+        <strong>Máy chủ AI chưa kết nối được.</strong> Các tính năng tạo nội dung (Prompt Studio) cần API server. Trên server hãy chạy:
+        <code>pm2 start ecosystem.config.cjs --update-env</code> hoặc <code>npm run server</code>, và đảm bảo Ollama đang chạy (<code>ollama serve</code>).
+        Nếu dùng nginx, xem cấu hình mẫu <code>deploy/nginx.conf.example</code>.
+        <button className="btn btn-sm btn-outline-secondary service-retry-btn" type="button" onClick={() => checkService(true)} disabled={serviceRetrying}>
+          {serviceRetrying ? <><span className="spinner-border spinner-border-sm me-2" />Đang kiểm tra…</> : 'Kiểm tra lại kết nối'}
+        </button>
+      </div>}
+      {service.state === 'online' && ['openai', 'anthropic'].includes(service.provider) && !service.keyConfigured && <div className="studio-alert">API đang chạy nhưng chưa cấu hình API key của nhà cung cấp cloud. Thêm key vào môi trường server rồi khởi động lại.</div>}
 
       <div className="studio-layout">
         <aside className="template-panel">

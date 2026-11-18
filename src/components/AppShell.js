@@ -83,7 +83,7 @@ const AppShell = ({ user, theme, onToggleTheme, onLogout, onCreateVideo, childre
       <aside className={`app-sidebar${mobileOpen ? ' mobile-open' : ''}`}>
         <div className="app-sidebar-brand">
           <Link to="/ai-library" className="app-brand-link" onClick={() => setMobileOpen(false)}>
-            <span className="app-brand-mark">✦</span>
+            <span className="app-brand-mark"><img src={`${process.env.PUBLIC_URL || ''}/logo-mark.svg`} alt="AI Social logo" /></span>
             <span className="app-brand-text">AI Social</span>
           </Link>
           <button className="app-sidebar-close" type="button" onClick={() => setMobileOpen(false)} aria-label="Close menu">

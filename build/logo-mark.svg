@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Transparent-background mark for use on dark surfaces (sidebar, login). -->
+  <defs>
+    <linearGradient id="markGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#B9B2FF"/>
+      <stop offset="100%" stop-color="#8F84F5"/>
+    </linearGradient>
+    <filter id="markGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="4" stdDeviation="10" flood-color="#6158D9" flood-opacity="0.55"/>
+    </filter>
+  </defs>
+  <g filter="url(#markGlow)">
+    <path d="M256 108
+             C 270 208, 304 242, 404 256
+             C 304 270, 270 304, 256 404
+             C 242 304, 208 270, 108 256
+             C 208 242, 242 208, 256 108 Z"
+          fill="url(#markGrad)"/>
+  </g>
+  <path d="M380 118
+           C 384 146, 398 160, 426 164
+           C 398 168, 384 182, 380 210
+           C 376 182, 362 168, 334 164
+           C 362 160, 376 146, 380 118 Z"
+        fill="#FFC85C"/>
+  <circle cx="128" cy="140" r="12" fill="#7CE3C4"/>
+</svg>

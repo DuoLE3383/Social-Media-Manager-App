@@ -1,5 +1,8 @@
 import 'dotenv/config';
 import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createCipheriv, createDecipheriv, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
 const PORT = Number(process.env.API_PORT || process.env.PORT || 8787);
@@ -39,6 +42,51 @@ const OLLAMA_QUEUE_LIMIT = positiveInt(process.env.OLLAMA_QUEUE_LIMIT, 4);
 let ollamaActive = false;
 const ollamaQueue = [];
 let ollamaModelsCache = { expiresAt: 0, names: [] };
+
+// Static SPA hosting: serve the built frontend (build/) from this same process.
+// Set SERVE_STATIC=false to disable (e.g. when nginx serves the static files itself).
+const STATIC_DIR = path.resolve(process.env.STATIC_DIR || path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'build'));
+const SERVE_STATIC = process.env.SERVE_STATIC !== 'false' && fs.existsSync(path.join(STATIC_DIR, 'index.html'));
+const MIME_TYPES = {
+  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.map': 'application/json; charset=utf-8',
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp',
+  '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.txt': 'text/plain; charset=utf-8', '.xml': 'application/xml',
+  '.webmanifest': 'application/manifest+json', '.woff': 'font/woff', '.woff2': 'font/woff2', '.ttf': 'font/ttf',
+};
+
+function serveStaticFile(res, filePath, cacheable) {
+  const ext = path.extname(filePath).toLowerCase();
+  const type = MIME_TYPES[ext] || 'application/octet-stream';
+  res.writeHead(200, {
+    'Content-Type': type,
+    'Cache-Control': cacheable ? 'public, max-age=31536000, immutable' : 'no-cache',
+    'X-Content-Type-Options': 'nosniff',
+  });
+  fs.createReadStream(filePath).pipe(res);
+}
+
+function serveStatic(req, res, pathname) {
+  try {
+    let decoded;
+    try { decoded = decodeURIComponent(pathname); } catch { decoded = '/'; }
+    if (decoded.includes('\0')) { send(res, 400, { error: 'Bad request.' }); return; }
+    const filePath = path.normalize(path.join(STATIC_DIR, decoded));
+    if (!filePath.startsWith(STATIC_DIR + path.sep) && filePath !== STATIC_DIR) { send(res, 403, { error: 'Forbidden.' }); return; }
+    let target = filePath;
+    if (fs.existsSync(target) && fs.statSync(target).isDirectory()) target = path.join(target, 'index.html');
+    if (fs.existsSync(target) && fs.statSync(target).isFile()) {
+      const cacheable = decoded.startsWith('/static/'); // hashed bundle filenames are immutable
+      serveStaticFile(res, target, cacheable);
+      return;
+    }
+    // SPA fallback: unknown non-API GET paths render the app shell.
+    serveStaticFile(res, path.join(STATIC_DIR, 'index.html'), false);
+  } catch (error) {
+    console.error('Static file error:', error.message);
+    send(res, 500, { error: 'Static file serving failed.' });
+  }
+}
 
 function positiveInt(value, fallback) {
   const parsed = Number(value);
@@ -1114,11 +1162,17 @@ const server = http.createServer(async (req, res) => {
     }
     return;
   }
+  // Static SPA hosting for non-API GET/HEAD requests (opt-out with SERVE_STATIC=false).
+  if (SERVE_STATIC && (req.method === 'GET' || req.method === 'HEAD') && !url.pathname.startsWith('/api/')) {
+    serveStatic(req, res, url.pathname);
+    return;
+  }
   send(res, 404, { error: 'Not found.' });
 });
 
 server.listen(PORT, HOST, () => {
   console.log(`Social Media AI API listening on http://${HOST}:${PORT} (${PROVIDER}/${MODEL})`);
+  if (SERVE_STATIC) console.log(`Serving static frontend from ${STATIC_DIR}`);
   setInterval(scheduledThreadsTick, 15_000).unref();
   setInterval(scheduledThreadsImageTick, 15_000).unref();
   scheduledThreadsTick();
