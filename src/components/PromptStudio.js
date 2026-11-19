@@ -1,4 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faImage, faVideo, faArrowRight } from '@fortawesome/free-solid-svg-icons';
 import { promptTemplates } from '../data/promptTemplates';
 import { supabase } from '../lib/supabase';
 import { apiUrl } from '../lib/api';
@@ -18,6 +21,7 @@ function readHistory() {
 const looksVietnamese = (text) => /[ăâêôơưđăâêôơưđàáảãạằắẳẵặầấẩẫậèéẻẽẹềếểễệìíỉĩịòóỏõọồốổỗộờớởỡợùúủũụừứửữựỳýỷỹỵ]/i.test(String(text || ''));
 
 export default function PromptStudio({ user, embedded = false }) {
+  const navigate = useNavigate();
   const [selectedId, setSelectedId] = useState(promptTemplates[0].id);
   const [category, setCategory] = useState('All');
   const [query, setQuery] = useState('');
@@ -192,6 +196,32 @@ export default function PromptStudio({ user, embedded = false }) {
     setMode(nextMode); setResult(''); setResultMeta(null); setNotice(''); setGuidedQuestion(''); setGuidedAnswer(''); setGuidedAnswers([]); setGuidedStep(0);
   };
 
+  // Wizard handoffs from the quick tab: the finished draft feeds the media
+  // chain — images (step 3) and video (step 4) — exactly like the Agent
+  // Builder done-step, so no dead end after a quick generation.
+  const sendResultToImage = () => {
+    try {
+      sessionStorage.setItem('aiSocialImageHandoff', JSON.stringify({
+        prompt: prompt.trim().slice(0, 800),
+        idea: '',
+        account: '',
+        content: String(result || '').slice(0, 1200),
+        ts: Date.now(),
+      }));
+    } catch { /* ignore */ }
+    navigate('/create-image');
+  };
+  const sendResultToVideo = () => {
+    try {
+      sessionStorage.setItem('aiSocialVideoHandoff', JSON.stringify({
+        idea: prompt.trim().slice(0, 300) || String(result || '').slice(0, 300),
+        account: '',
+        ts: Date.now(),
+      }));
+    } catch { /* ignore */ }
+    navigate('/ai-library');
+  };
+
   const saveVoice = (value) => {
     setBrandVoice(value); localStorage.setItem('socialMediaBrandVoice', value);
     if (supabase && user?.id) {
@@ -258,7 +288,17 @@ export default function PromptStudio({ user, embedded = false }) {
             {busy && draftingGuided && <p className="guided-progress">Preparing your finished draft…</p>}
           </section>}
           {notice && <div className="alert alert-danger mt-3" role="alert">{notice}</div>}
-          {(result || (busy && (mode === 'quick' || draftingGuided))) && <section className="result-card"><div className="result-heading"><div><span className="eyebrow">AI OUTPUT</span><h3>{mode === 'guided' ? 'Guided draft' : 'Draft'}</h3></div>{result && <button className="btn btn-sm btn-outline-secondary" onClick={() => navigator.clipboard?.writeText(result).then(() => setNotice('Copied to clipboard.'))}>Copy</button>}</div>{resultMeta && <div className="output-meta"><span className="chip">{resultMeta.model || 'Model unavailable'}</span><span className="chip">{resultMeta.tier === 'premium' ? 'Chất lượng' : 'Nhanh'}</span>{Number.isFinite(resultMeta.durationMs) && <span className="chip">{(resultMeta.durationMs / 1000).toFixed(1)}s</span>}{resultMeta.fallbackFrom && <span className="chip" title={resultMeta.fallbackReason}>Fallback from {resultMeta.fallbackFrom}</span>}</div>}{busy && !result ? <div className="result-loading"><span className="spinner-border spinner-border-sm me-2" />{draftingGuided ? `Finishing with ${runningModel || 'AI'}…` : `Working with ${runningModel || 'AI'}…`}</div> : <pre className="result-text">{result}</pre>}</section>}
+          {(result || (busy && (mode === 'quick' || draftingGuided))) && <section className="result-card"><div className="result-heading"><div><span className="eyebrow">AI OUTPUT</span><h3>{mode === 'guided' ? 'Guided draft' : 'Draft'}</h3></div>{result && <button className="btn btn-sm btn-outline-secondary" onClick={() => navigator.clipboard?.writeText(result).then(() => setNotice('Copied to clipboard.'))}>Copy</button>}</div>{resultMeta && <div className="output-meta"><span className="chip">{resultMeta.model || 'Model unavailable'}</span><span className="chip">{resultMeta.tier === 'premium' ? 'Chất lượng' : 'Nhanh'}</span>{Number.isFinite(resultMeta.durationMs) && <span className="chip">{(resultMeta.durationMs / 1000).toFixed(1)}s</span>}{resultMeta.fallbackFrom && <span className="chip" title={resultMeta.fallbackReason}>Fallback from {resultMeta.fallbackFrom}</span>}</div>}{busy && !result ? <div className="result-loading"><span className="spinner-border spinner-border-sm me-2" />{draftingGuided ? `Finishing with ${runningModel || 'AI'}…` : `Working with ${runningModel || 'AI'}…`}</div> : <pre className="result-text">{result}</pre>}{!busy && result && <div className="ps-next-media">
+              <div className="ps-next-media-btns">
+                <button type="button" className="btn btn-primary ps-media-btn" onClick={sendResultToImage} title="Đưa nội dung này sang Tạo Ảnh (bước 3)">
+                  <FontAwesomeIcon icon={faImage} /> Tạo ảnh minh họa — bước 3 →
+                </button>
+                <button type="button" className="btn btn-outline-secondary ps-media-btn" onClick={sendResultToVideo} title="Đưa ý tưởng sang Thư viện AI để ghép video (bước 4)">
+                  <FontAwesomeIcon icon={faVideo} /> Tạo video — bước 4 →
+                </button>
+              </div>
+              <p className="ps-chain-hint"><FontAwesomeIcon icon={faArrowRight} /> Trình tự: tạo ảnh (b3) → ghép video (b4) → Lịch đăng.</p>
+            </div>}</section>}
         </section>
       </div>
       {!embedded && <footer className="studio-footer">Signed in as {user?.email || user?.name || 'demo user'} <span>·</span> {supabase ? 'Brand voice and prompt run history sync to your Supabase account.' : 'Draft history and brand context are stored in this browser.'}</footer>}

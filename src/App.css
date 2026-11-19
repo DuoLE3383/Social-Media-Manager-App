@@ -872,6 +872,10 @@ html[data-theme="dark"] .ai-modal-cat { background: #302e48; color: #c2bdff; }
 .ai-ghost-btn:hover { background: #f4f4f8; }
 .ai-ghost-btn.danger { color: #c0392b; border-color: #f1d6d2; }
 .ai-ghost-btn.danger:hover { background: #fbeae8; }
+.ai-ghost-btn.publish { color: #4a3fd8; border-color: #d9d5f8; font-weight: 600; }
+.ai-ghost-btn.publish:hover { background: #f1effd; }
+html[data-theme="dark"] .ai-ghost-btn.publish { color: #b9b0ff; border-color: #4a4570; }
+html[data-theme="dark"] .ai-ghost-btn.publish:hover { background: #2c2a44; }
 html[data-theme="dark"] .ai-ghost-btn { color: #e5e3f0; border-color: #34334a; }
 html[data-theme="dark"] .ai-ghost-btn:hover { background: #2a293c; }
 
@@ -2064,6 +2068,30 @@ html[data-theme="dark"] .as-project-clear:hover { background: #34334a; color: #e
 html[data-theme="dark"] .as-project-note { color: #8d89ad; }
 
 .as-to-image-btn { margin-top: 14px; width: 100%; justify-content: center; }
+
+/* ---------- Post-agent media chain handoff (step 2 -> images b3 -> video b4) ---------- */
+.as-media-handoff { margin-top: 14px; width: 100%; }
+.as-media-handoff .as-media-handoff-btns { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+.as-media-handoff .as-to-image-btn { margin-top: 0; flex: 1 1 220px; }
+.as-media-handoff .as-to-video-btn { flex: 1 1 160px; justify-content: center; margin-top: 0; }
+.as-chain-hint {
+  margin: 8px 0 0; font-size: .78rem; color: #6f6b8f;
+  display: flex; align-items: flex-start; gap: 6px; line-height: 1.45;
+}
+.as-chain-hint .as-chain-arrow { margin-top: 3px; font-size: .7rem; color: #7c6cf0; flex-shrink: 0; }
+html[data-theme="dark"] .as-chain-hint { color: #9a97b5; }
+
+/* ---------- Quick prompt tab: media chain handoff under the draft ---------- */
+.ps-next-media { margin-top: 14px; padding-top: 12px; border-top: 1px dashed #e3e1f0; }
+.ps-next-media-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+.ps-media-btn { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+.ps-chain-hint {
+  margin: 8px 0 0; font-size: .78rem; color: #6f6b8f;
+  display: flex; align-items: flex-start; gap: 6px; line-height: 1.45;
+}
+.ps-chain-hint svg { margin-top: 3px; font-size: .7rem; color: #7c6cf0; flex-shrink: 0; }
+html[data-theme="dark"] .ps-next-media { border-top-color: #3a3852; }
+html[data-theme="dark"] .ps-chain-hint { color: #9a97b5; }
 
 /* ---------- Smart Prompt: "create agent from this prompt" (step 2) ---------- */
 .sp-agent-btn {

@@ -24,6 +24,7 @@ import {
   faArrowLeft,
   faArrowRight,
   faImage,
+  faVideo,
   faUser,
   faXmark,
   faDna,
@@ -207,6 +208,9 @@ const LANG_STRINGS = {
     clearContext: 'Xoá ngữ cảnh dự án',
     toImageBtn: 'Tạo ảnh minh họa — bước 3 →',
     toImageTitle: 'Đưa prompt (b1) và bài viết của agent (b2) sang Tạo Ảnh',
+    toVideoBtn: 'Tạo video — bước 4 →',
+    toVideoTitle: 'Đưa ý tưởng sang Thư viện AI để ghép video (bước 4)',
+    chainHint: 'Trình tự: tạo ảnh (b3) → ghép video (b4) → Lịch đăng. Video tự sinh ảnh từng cảnh nên chạy được ngay cả khi chưa tạo ảnh.',
   },
   en: {
     tabs: { agent: 'Agent Builder', quick: 'Quick prompt', evolve: 'Evolve Agent' },
@@ -278,6 +282,9 @@ const LANG_STRINGS = {
     clearContext: 'Clear project context',
     toImageBtn: 'Create images — step 3 →',
     toImageTitle: 'Send the prompt (S1) and the agent copy (S2) to Create Image',
+    toVideoBtn: 'Create video — step 4 →',
+    toVideoTitle: 'Send the idea to AI Library to build the video (step 4)',
+    chainHint: 'Flow: images (S3) → video (S4) → Publish Plan. The video generates its own scene images, so it works even before step 3.',
   },
 };
 
@@ -357,6 +364,37 @@ const AgentStudio = ({ user }) => {
     } catch { /* ignore */ }
     navigate('/create-image');
   };
+
+  // Wizard step 4 handoff: send the idea straight to AI Library. The video
+  // builder writes its own scene script and generates per-scene images, so it
+  // works even if the user skipped Create Image (step 3).
+  const sendToVideo = () => {
+    const lastDone = [...stepStates].reverse().find((s) => s.status === 'done' && s.text);
+    try {
+      sessionStorage.setItem('aiSocialVideoHandoff', JSON.stringify({
+        idea: projectIdea.trim() || input.trim() || (lastDone ? String(lastDone.text).slice(0, 300) : ''),
+        account: accountName.trim(),
+        ts: Date.now(),
+      }));
+    } catch { /* ignore */ }
+    navigate('/ai-library');
+  };
+
+  // The post-agent suggestion the owner asked for: from step 2 the user must
+  // SEE the media chain — images (step 3) AND video (step 4) — not just images.
+  const mediaHandoff = (
+    <div className="as-media-handoff">
+      <div className="as-media-handoff-btns">
+        <button type="button" className="as-primary-btn as-to-image-btn" onClick={sendToImage} title={T.toImageTitle}>
+          <FontAwesomeIcon icon={faImage} /> {T.toImageBtn}
+        </button>
+        <button type="button" className="as-ghost-btn as-to-video-btn" onClick={sendToVideo} title={T.toVideoTitle}>
+          <FontAwesomeIcon icon={faVideo} /> {T.toVideoBtn}
+        </button>
+      </div>
+      <p className="as-chain-hint"><FontAwesomeIcon icon={faArrowRight} className="as-chain-arrow" /> {T.chainHint}</p>
+    </div>
+  );
 
   const showToast = (msg) => {
     setToast(msg);
@@ -863,11 +901,7 @@ const AgentStudio = ({ user }) => {
         ))}
       </div>
       <p className="as-offline-note">{T.offlineNote}</p>
-      {!running && stepStates.some((s) => s.status === 'done') && (
-        <button type="button" className="as-primary-btn as-to-image-btn" onClick={sendToImage} title={T.toImageTitle}>
-          <FontAwesomeIcon icon={faImage} /> {T.toImageBtn}
-        </button>
-      )}
+      {!running && stepStates.some((s) => s.status === 'done') && mediaHandoff}
     </div>
   );
 
@@ -894,9 +928,7 @@ const AgentStudio = ({ user }) => {
         {accountName.trim() && <span className="as-chip"><FontAwesomeIcon icon={faUser} /> {accountName.trim()}</span>}
       </div>
       <div className="as-done-actions">
-        <button type="button" className="as-primary-btn" onClick={sendToImage} title={T.toImageTitle}>
-          <FontAwesomeIcon icon={faImage} /> {T.toImageBtn}
-        </button>
+        {mediaHandoff}
       </div>
       <div className="as-done-actions">
         <button type="button" className="as-ghost-btn" onClick={() => copyText(transcript)} disabled={!transcript}>

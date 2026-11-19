@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faArrowsRotate,
@@ -16,6 +17,7 @@ import {
   faFilm,
   faImage,
   faCircleInfo,
+  faCalendarDays,
 } from '@fortawesome/free-solid-svg-icons';
 import { useLang } from '../lib/i18n';
 import { apiUrl } from '../lib/api';
@@ -260,6 +262,7 @@ async function renderStoryboardVideo(scenes, images, onProgress) {
 }
 
 const AILibrary = forwardRef(({ user }, ref) => {
+  const navigate = useNavigate();
   const [lang] = useLang();
   const T = STRINGS[lang];
   const [items, setItems] = useState([]);
@@ -656,6 +659,9 @@ const AILibrary = forwardRef(({ user }, ref) => {
               <div className="ai-modal-actions">
                 <button className="ai-cta-btn" type="button" disabled={!activeItem.videoUrl} onClick={() => downloadItem(activeItem)}>
                   <FontAwesomeIcon icon={faDownload} /> Download
+                </button>
+                <button className="ai-ghost-btn publish" type="button" onClick={() => navigate('/publish-plan')} title={lang === 'vi' ? 'Đưa video vào lịch đăng — đăng bài cần đăng nhập' : 'Put the video on the publishing calendar — sign-in required to post'}>
+                  <FontAwesomeIcon icon={faCalendarDays} /> {lang === 'vi' ? 'Đưa lên Lịch đăng →' : 'Add to Publish Plan →'}
                 </button>
                 <button className="ai-ghost-btn danger" type="button" onClick={() => { deleteItems([activeItem.id]); }}>
                   <FontAwesomeIcon icon={faTrash} /> {T.delete}
