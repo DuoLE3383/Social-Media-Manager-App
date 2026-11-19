@@ -1058,6 +1058,11 @@ html[data-theme="dark"] .feed-post-actions { border-top-color: #34334a; }
 }
 html[data-theme="dark"] .feed-post-actions button { color: #b6b3d0; }
 .feed-post-actions button:hover { background: #6158d912; color: #6158d9; }
+/* Per-post "Schedule" action — the login-required publishing step */
+.feed-schedule-btn { margin-left: auto; color: #4a3fd8 !important; font-weight: 600; border: 1px solid #d9d5f8; }
+.feed-schedule-btn:hover { background: #f1effd !important; color: #35309f !important; }
+html[data-theme="dark"] .feed-schedule-btn { color: #b9b0ff !important; border-color: #4a4570; }
+html[data-theme="dark"] .feed-schedule-btn:hover { background: #2c2a44 !important; color: #d3ccff !important; }
 .feed-comments { border-top: 1px solid #ece9f5; padding-top: 12px; margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
 html[data-theme="dark"] .feed-comments { border-top-color: #34334a; }
 .feed-comment { display: flex; gap: 8px; align-items: flex-start; }
@@ -1178,6 +1183,32 @@ html[data-theme="dark"] .pp-queue-status.draft { background: #d4a52e22; }
 }
 .pp-queue-actions button:hover { background: #6158d912; color: #6158d9; }
 
+/* Add/edit scheduling form (the real, login-required publish action) */
+.pp-form { border: 1px solid #e3e1f0; border-radius: 12px; padding: 12px; margin: 10px 0; background: #f8f7fd; }
+.pp-form-title { margin: 0 0 8px; font-size: .82rem; font-weight: 700; color: #25243a; }
+.pp-form-title small { color: #8d89ad; font-weight: 500; }
+.pp-form-input { width: 100%; border: 1px solid #dcdaee; border-radius: 9px; padding: 8px 10px; font-size: .84rem; resize: vertical; background: #fff; color: #25243a; }
+.pp-form-row { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.pp-form-row select, .pp-form-row input[type="time"] {
+  border: 1px solid #dcdaee; border-radius: 9px; padding: 7px 8px; font-size: .82rem; background: #fff; color: #25243a; flex: 1 1 90px; min-width: 0;
+}
+.pp-form-actions { display: flex; gap: 8px; margin-top: 10px; }
+.pp-form-save {
+  display: inline-flex; align-items: center; gap: 7px; background: #6158d9; color: #fff; border: 0;
+  border-radius: 9px; padding: 8px 14px; font-size: .82rem; font-weight: 700; cursor: pointer;
+}
+.pp-form-save:hover { background: #5047a8; }
+.pp-form-cancel {
+  display: inline-flex; align-items: center; gap: 7px; background: transparent; color: #6a6a82; border: 1px solid #dcdaee;
+  border-radius: 9px; padding: 8px 14px; font-size: .82rem; cursor: pointer;
+}
+.pp-publish-note { margin: 12px 2px 0; font-size: .74rem; color: #8d89ad; line-height: 1.5; }
+html[data-theme="dark"] .pp-form { background: #1f1e2c; border-color: #34334a; }
+html[data-theme="dark"] .pp-form-title { color: #e5e3f0; }
+html[data-theme="dark"] .pp-form-input { background: #171624; border-color: #4a4570; color: #e8e7f0; }
+html[data-theme="dark"] .pp-form-row select, html[data-theme="dark"] .pp-form-row input[type="time"] { background: #171624; border-color: #4a4570; color: #e8e7f0; }
+html[data-theme="dark"] .pp-form-cancel { color: #b6b3d0; border-color: #4a4570; }
+
 .pp-empty { text-align: center; padding: 24px 12px; color: #9d9ab8; }
 .pp-empty svg { font-size: 1.6rem; margin-bottom: 8px; display: block; margin-left: auto; margin-right: auto; }
 
@@ -1197,8 +1228,31 @@ html[data-theme="dark"] .rp-range button { color: #b6b3d0; }
 .rp-export {
   background: #fff; border: 1px solid #ece9f5; border-radius: 10px; padding: 8px 14px;
   font-size: .82rem; color: #6158d9; cursor: pointer; font-weight: 600;
+  display: inline-flex; align-items: center; gap: 7px;
 }
 html[data-theme="dark"] .rp-export { background: #1f1f2b; border-color: #34334a; }
+
+/* Reports -> Agent evolution entry (analysis loop back into step 2) */
+.rp-evolve-card {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  border-left: 4px solid #7c6cf0;
+}
+.rp-evolve-icon {
+  width: 42px; height: 42px; border-radius: 10px; flex-shrink: 0;
+  background: #6158d91a; color: #6158d9; display: inline-flex; align-items: center; justify-content: center; font-size: 1.05rem;
+}
+.rp-evolve-body { flex: 1 1 320px; min-width: 0; }
+.rp-evolve-body h3 { margin: 0 0 4px; font-size: .98rem; }
+.rp-evolve-body p { margin: 0; font-size: .82rem; }
+.rp-evolve-btn {
+  display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0;
+  background: #25243a; color: #fff; border: 0; border-radius: 10px;
+  padding: 11px 18px; font-size: .85rem; font-weight: 700; cursor: pointer;
+  transition: background .15s;
+}
+.rp-evolve-btn:hover { background: #5047a8; }
+html[data-theme="dark"] .rp-evolve-btn { background: #34324a; }
+html[data-theme="dark"] .rp-evolve-btn:hover { background: #5047a8; }
 
 .rp-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
 .rp-stat-tile {
@@ -2101,6 +2155,18 @@ html[data-theme="dark"] .ps-chain-hint { color: #9a97b5; }
   padding: 12px 18px; font-size: .88rem; font-weight: 700; cursor: pointer;
   transition: background .15s;
 }
+/* "Skip the agent" image shortcut (step 1 -> step 3) */
+.sp-image-btn {
+  margin-top: 8px; width: 100%;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  background: transparent; color: #25243a; border: 1px dashed #c9c5e8; border-radius: 10px;
+  padding: 10px 18px; font-size: .84rem; font-weight: 600; cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.sp-image-btn:hover:not(:disabled) { background: #f4f3fb; border-color: #7c6cf0; color: #4a3fd8; }
+.sp-image-btn:disabled { opacity: .45; cursor: not-allowed; }
+html[data-theme="dark"] .sp-image-btn { color: #d5d3ea; border-color: #4a4570; }
+html[data-theme="dark"] .sp-image-btn:hover:not(:disabled) { background: #2c2a44; color: #b9b0ff; }
 .sp-agent-btn:hover:not(:disabled) { background: #5047a8; }
 .sp-agent-btn:disabled { opacity: .45; cursor: not-allowed; }
 html[data-theme="dark"] .sp-agent-btn { background: #34324a; }

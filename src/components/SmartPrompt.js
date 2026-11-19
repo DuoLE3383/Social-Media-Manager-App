@@ -12,6 +12,7 @@ import {
   faCalendar,
   faBolt,
   faRobot,
+  faImage,
 } from '@fortawesome/free-solid-svg-icons';
 import { useLang } from '../lib/i18n';
 
@@ -80,7 +81,6 @@ const SmartPrompt = () => {
   const [ideas, setIdeas] = useState(IDEAS.trending);
   const [business, setBusiness] = useState('');
   const [generatedPrompt, setGeneratedPrompt] = useState('');
-  const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState(null);
 
   const showToast = (msg) => {
@@ -136,6 +136,35 @@ const SmartPrompt = () => {
       }));
     } catch { /* private mode */ }
     navigate('/prompts');
+  };
+
+  // "Mở trong Prompt Studio" used to be a fake toast — now it really opens the
+  // quick-prompt tab of the Agent Builder with this prompt prefilled.
+  const sendToQuickStudio = () => {
+    if (!generatedPrompt) return;
+    try {
+      sessionStorage.setItem('aiSocialQuickHandoff', JSON.stringify({
+        prompt: generatedPrompt,
+        ts: Date.now(),
+      }));
+    } catch { /* private mode */ }
+    navigate('/prompts?tab=quick');
+  };
+
+  // Shortcut: skip the agent and go straight to images (wizard step 3) with
+  // this prompt. Keeps the media chain reachable from step 1 as well.
+  const sendToImage = () => {
+    if (!generatedPrompt) return;
+    try {
+      sessionStorage.setItem('aiSocialImageHandoff', JSON.stringify({
+        prompt: generatedPrompt,
+        idea: generatedPrompt,
+        account: '',
+        content: '',
+        ts: Date.now(),
+      }));
+    } catch { /* private mode */ }
+    navigate('/create-image');
   };
 
   const surprise = () => {
@@ -247,13 +276,10 @@ const SmartPrompt = () => {
             <button
               type="button"
               className="sp-run-btn"
-              disabled={!generatedPrompt || busy}
-              onClick={() => {
-                setBusy(true);
-                setTimeout(() => { setBusy(false); showToast('Đã gửi sang Prompt Studio — mở Posts để xem'); }, 700);
-              }}
+              disabled={!generatedPrompt}
+              onClick={sendToQuickStudio}
             >
-              {busy ? <><span className="spinner-border spinner-border-sm me-2" /> Đang gửi...</> : <><FontAwesomeIcon icon={faWandMagicSparkles} /> Mở trong Prompt Studio</>}
+              <FontAwesomeIcon icon={faWandMagicSparkles} /> Mở trong Prompt Studio
             </button>
           </div>
           <button
@@ -264,6 +290,15 @@ const SmartPrompt = () => {
             title={lang === 'vi' ? 'Bước 2: tạo agent bám theo tài khoản suốt dự án' : 'Step 2: create an agent that follows your account for the whole project'}
           >
             <FontAwesomeIcon icon={faRobot} /> Tạo Agent từ prompt này — bước 2 →
+          </button>
+          <button
+            type="button"
+            className="sp-image-btn"
+            onClick={sendToImage}
+            disabled={!generatedPrompt}
+            title={lang === 'vi' ? 'Bỏ qua agent, tạo ảnh minh hoạ ngay từ prompt này (bước 3)' : 'Skip the agent and create images from this prompt right away (step 3)'}
+          >
+            <FontAwesomeIcon icon={faImage} /> Tạo ảnh trực tiếp — bước 3 →
           </button>
         </section>
       </div>

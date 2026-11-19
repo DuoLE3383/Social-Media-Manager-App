@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faComment,
@@ -8,7 +9,9 @@ import {
   faSmile,
   faThumbsUp,
   faCalendarAlt,
+  faCalendarDays,
 } from '@fortawesome/free-solid-svg-icons';
+import { useLang } from '../lib/i18n';
 
 const SAMPLE_POSTS = [
   {
@@ -49,13 +52,33 @@ const SAMPLE_POSTS = [
 ];
 
 const Feed = ({ user }) => {
+  const navigate = useNavigate();
+  const [lang] = useLang();
+  const t = {
+    vi: {
+      composerTrigger: 'Bạn muốn chia sẻ điều gì?',
+      composerPh: 'Chia sẻ câu chuyện của bạn...',
+      toolImage: 'Ảnh', toolVideo: 'Video', toolMood: 'Cảm xúc',
+      cancel: 'Huỷ', post: 'Đăng bài',
+      like: 'Thích', comment: 'Bình luận', share: 'Chia sẻ',
+      schedule: 'Lên lịch', scheduleTitle: 'Đưa bài này vào Lịch đăng — đăng bài cần đăng nhập',
+      commentPh: 'Viết bình luận...', send: 'Gửi',
+      minAgo: 'phút trước', hourAgo: 'giờ trước', dayAgo: 'ngày trước',
+    },
+    en: {
+      composerTrigger: 'What do you want to share?',
+      composerPh: 'Share your story...',
+      toolImage: 'Photo', toolVideo: 'Video', toolMood: 'Feeling',
+      cancel: 'Cancel', post: 'Post',
+      like: 'Like', comment: 'Comment', share: 'Share',
+      schedule: 'Schedule', scheduleTitle: 'Put this post on the publishing calendar — sign-in required to publish',
+      commentPh: 'Write a comment...', send: 'Send',
+      minAgo: 'm ago', hourAgo: 'h ago', dayAgo: 'd ago',
+    },
+  }[lang] || {};
   const [posts, setPosts] = useState(SAMPLE_POSTS);
   const [newPost, setNewPost] = useState('');
   const [showCreate, setShowCreate] = useState(false);
-
-  useEffect(() => {
-    // Hook retained for future persistence.
-  }, []);
 
   const handleCreate = () => {
     if (!newPost.trim()) return;
@@ -89,14 +112,27 @@ const Feed = ({ user }) => {
     setPosts((p) => p.map((post) => (post.id === id ? { ...post, shares: post.shares + 1 } : post)));
   };
 
+  // Action-level gating: scheduling/publishing is the one step that needs an
+  // account. Guests land on the LoginRequired interstitial (route keeps
+  // ?next=/publish-plan so sign-in returns them straight to the calendar).
+  const schedulePost = (post) => {
+    try {
+      sessionStorage.setItem('aiSocialPublishHandoff', JSON.stringify({
+        title: String(post.content || '').slice(0, 140),
+        ts: Date.now(),
+      }));
+    } catch { /* ignore */ }
+    navigate('/publish-plan');
+  };
+
   const fmt = (ts) => {
     const diff = Date.now() - ts;
     const m = Math.floor(diff / 60000);
     const h = Math.floor(diff / 3600000);
     const d = Math.floor(diff / 86400000);
-    if (m < 60) return `${m} phút trước`;
-    if (h < 24) return `${h} giờ trước`;
-    return `${d} ngày trước`;
+    if (m < 60) return `${m} ${t.minAgo}`;
+    if (h < 24) return `${h} ${t.hourAgo}`;
+    return `${d} ${t.dayAgo}`;
   };
 
   return (
@@ -111,14 +147,14 @@ const Feed = ({ user }) => {
         <div className="feed-composer-body">
           {!showCreate ? (
             <button className="feed-composer-trigger" onClick={() => setShowCreate(true)}>
-              Bạn muốn chia sẻ điều gì?
+              {t.composerTrigger}
             </button>
           ) : (
             <>
               <textarea
                 className="feed-textarea"
                 rows="3"
-                placeholder="Chia sẻ câu chuyện của bạn..."
+                placeholder={t.composerPh}
                 value={newPost}
                 onChange={(e) => setNewPost(e.target.value)}
                 autoFocus
@@ -126,19 +162,19 @@ const Feed = ({ user }) => {
               <div className="feed-composer-actions">
                 <div className="feed-composer-tools">
                   <button type="button" className="feed-tool-btn">
-                    <FontAwesomeIcon icon={faImage} /> Ảnh
+                    <FontAwesomeIcon icon={faImage} /> {t.toolImage}
                   </button>
                   <button type="button" className="feed-tool-btn">
-                    <FontAwesomeIcon icon={faVideo} /> Video
+                    <FontAwesomeIcon icon={faVideo} /> {t.toolVideo}
                   </button>
                   <button type="button" className="feed-tool-btn">
-                    <FontAwesomeIcon icon={faSmile} /> Cảm xúc
+                    <FontAwesomeIcon icon={faSmile} /> {t.toolMood}
                   </button>
                 </div>
                 <div className="feed-composer-submit">
-                  <button type="button" className="feed-cancel-btn" onClick={() => setShowCreate(false)}>Huỷ</button>
+                  <button type="button" className="feed-cancel-btn" onClick={() => setShowCreate(false)}>{t.cancel}</button>
                   <button type="button" className="feed-post-btn" onClick={handleCreate} disabled={!newPost.trim()}>
-                    Đăng bài
+                    {t.post}
                   </button>
                 </div>
               </div>
@@ -164,34 +200,38 @@ const Feed = ({ user }) => {
             )}
             <footer className="feed-post-actions">
               <button type="button" onClick={() => handleLike(post.id)}>
-                <FontAwesomeIcon icon={faThumbsUp} /> Thích ({post.likes})
+                <FontAwesomeIcon icon={faThumbsUp} /> {t.like} ({post.likes})
               </button>
               <button type="button">
-                <FontAwesomeIcon icon={faComment} /> Bình luận ({post.comments.length})
+                <FontAwesomeIcon icon={faComment} /> {t.comment} ({post.comments.length})
               </button>
               <button type="button" onClick={() => handleShare(post.id)}>
-                <FontAwesomeIcon icon={faShare} /> Chia sẻ ({post.shares})
+                <FontAwesomeIcon icon={faShare} /> {t.share} ({post.shares})
+              </button>
+              <button type="button" className="feed-schedule-btn" onClick={() => schedulePost(post)} title={t.scheduleTitle}>
+                <FontAwesomeIcon icon={faCalendarDays} /> {t.schedule}
               </button>
             </footer>
-            {post.comments.length > 0 && (
-              <div className="feed-comments">
-                {post.comments.map((c) => (
-                  <div key={c.id} className="feed-comment">
-                    <img
-                      src={`https://ui-avatars.com/api/?name=${encodeURIComponent(c.author)}&background=ecebff&color=5047a8`}
-                      alt=""
-                      className="feed-avatar feed-avatar-sm"
-                    />
-                    <div className="feed-comment-body">
-                      <strong>{c.author}</strong>
-                      <p>{c.content}</p>
-                      <small>{fmt(c.timestamp)}</small>
-                    </div>
+            {/* The comment box ALWAYS renders — previously it only appeared
+                when a post already had comments, so the Comment button was a
+                dead end for posts with zero comments. */}
+            <div className="feed-comments">
+              {post.comments.map((c) => (
+                <div key={c.id} className="feed-comment">
+                  <img
+                    src={`https://ui-avatars.com/api/?name=${encodeURIComponent(c.author)}&background=ecebff&color=5047a8`}
+                    alt=""
+                    className="feed-avatar feed-avatar-sm"
+                  />
+                  <div className="feed-comment-body">
+                    <strong>{c.author}</strong>
+                    <p>{c.content}</p>
+                    <small>{fmt(c.timestamp)}</small>
                   </div>
-                ))}
-                <CommentBox onSubmit={(text) => handleComment(post.id, text)} user={user} />
-              </div>
-            )}
+                </div>
+              ))}
+              <CommentBox onSubmit={(text) => handleComment(post.id, text)} user={user} placeholder={t.commentPh} sendLabel={t.send} />
+            </div>
           </article>
         ))}
       </div>
@@ -199,7 +239,7 @@ const Feed = ({ user }) => {
   );
 };
 
-const CommentBox = ({ onSubmit, user }) => {
+const CommentBox = ({ onSubmit, user, placeholder, sendLabel }) => {
   const [text, setText] = useState('');
   return (
     <form
@@ -213,11 +253,11 @@ const CommentBox = ({ onSubmit, user }) => {
       />
       <input
         type="text"
-        placeholder="Viết bình luận..."
+        placeholder={placeholder}
         value={text}
         onChange={(e) => setText(e.target.value)}
       />
-      <button type="submit" disabled={!text.trim()}>Gửi</button>
+      <button type="submit" disabled={!text.trim()}>{sendLabel}</button>
     </form>
   );
 };

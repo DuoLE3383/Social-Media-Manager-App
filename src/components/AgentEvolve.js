@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faDna,
@@ -73,14 +73,29 @@ const LANG_STRINGS = {
 const AgentEvolve = ({ agents, account, idea, onApply }) => {
   const [lang] = useLang();
   const T = LANG_STRINGS[lang] || LANG_STRINGS.vi;
-  const [selectedId, setSelectedId] = useState(agents[0]?.id || '');
-  const [results, setResults] = useState('');
+  // Reports hands its analysed post metrics over via sessionStorage
+  // (aiSocialEvolveHandoff): prefill the results box (and pick the agent if
+  // given) so "Tiến hoá Agent từ kết quả đăng bài" is one click away.
+  const handoff = useMemo(() => {
+    try {
+      const raw = JSON.parse(sessionStorage.getItem('aiSocialEvolveHandoff') || 'null');
+      return raw && (typeof raw.results === 'string' || typeof raw.agentId === 'string') ? raw : null;
+    } catch { return null; }
+  }, []);
+  const [selectedId, setSelectedId] = useState(handoff?.agentId && agents.some((a) => a.id === handoff.agentId) ? handoff.agentId : (agents[0]?.id || ''));
+  const [results, setResults] = useState(typeof handoff?.results === 'string' ? handoff.results.slice(0, 8000) : '');
   const [phase, setPhase] = useState('idle'); // idle | running | done
   const [result, setResult] = useState(null); // { ok, agent?, improvements?, summary?, raw?, message? }
   const [error, setError] = useState('');
   const [lastRunTs, setLastRunTs] = useState(null);
 
   const selected = useMemo(() => agents.find((a) => a.id === selectedId) || agents[0], [agents, selectedId]);
+
+  // Once the prefilled metrics land, note the run badge state for the button row.
+  useEffect(() => {
+    if (selectedId) setLastRunTs(readAgentRun(selectedId)?.ts || null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId]);
 
   const pickAgent = (id) => {
     setSelectedId(id);

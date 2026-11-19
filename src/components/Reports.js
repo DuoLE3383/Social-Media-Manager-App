@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faArrowUp,
@@ -9,7 +10,10 @@ import {
   faUsers,
   faImage,
   faVideo,
+  faDna,
+  faDownload,
 } from '@fortawesome/free-solid-svg-icons';
+import { useLang } from '../lib/i18n';
 
 // 12-week engagement series for the line chart.
 const ENGAGEMENT_SERIES = [
@@ -41,8 +45,6 @@ const TOP_CONTENT = [
   { id: 4, type: 'image', title: 'Bowl of pho with steam rising', platform: 'instagram', views: '12.7K', likes: 2480, comments: 96, shares: 54 },
 ];
 
-const RANGE_OPTIONS = ['7 ngày', '30 ngày', '12 tuần', 'Năm nay'];
-
 const StatTile = ({ icon, label, value, delta, dir }) => (
   <div className="rp-stat-tile">
     <div className="rp-stat-icon"><FontAwesomeIcon icon={icon} /></div>
@@ -57,7 +59,41 @@ const StatTile = ({ icon, label, value, delta, dir }) => (
 );
 
 const Reports = () => {
-  const [range, setRange] = useState('12 tuần');
+  const navigate = useNavigate();
+  const [lang] = useLang();
+  const vi = lang !== 'en';
+  const T = {
+    ranges: vi ? ['7 ngày', '30 ngày', '12 tuần', 'Năm nay'] : ['7 days', '30 days', '12 weeks', 'This year'],
+    exportCsv: vi ? 'Xuất CSV' : 'Export CSV',
+    reach: vi ? 'Lượt tiếp cận' : 'Reach',
+    engagement: vi ? 'Tỷ lệ tương tác' : 'Engagement rate',
+    followers: vi ? 'Người theo dõi' : 'Followers',
+    impressions: vi ? 'Lượt hiển thị' : 'Impressions',
+    trendTitle: vi ? 'Xu hướng tương tác' : 'Engagement trend',
+    trendSub: (r) => vi ? `Lượt thích + bình luận + chia sẻ trong ${r.toLowerCase()}` : `Likes + comments + shares in ${r.toLowerCase()}`,
+    platformTitle: vi ? 'Theo nền tảng' : 'By platform',
+    platformSub: vi ? 'Phân bổ tương tác theo kênh' : 'Engagement split by channel',
+    topTitle: vi ? 'Nội dung nổi bật' : 'Top content',
+    topSub: (r) => vi ? `Top 4 bài có tương tác cao nhất trong ${r.toLowerCase()}` : `Top 4 posts by engagement in ${r.toLowerCase()}`,
+    colContent: vi ? 'Nội dung' : 'Content',
+    colPlatform: vi ? 'Nền tảng' : 'Platform',
+    colViews: vi ? 'Hiển thị' : 'Views',
+    colLikes: vi ? 'Thích' : 'Likes',
+    colComments: vi ? 'BL' : 'Comm.',
+    colShares: vi ? 'Chia sẻ' : 'Shares',
+    evolveTitle: vi ? 'Tiến hoá Agent từ kết quả này' : 'Evolve your Agent from these results',
+    evolveSub: vi ? 'AI phân tích số liệu bài đăng (hiển thị, thích, chia sẻ…) rồi tự nâng cấp agent: viết lại prompt, rút gọn hook, tập trung CTA.' : 'The AI analyses post metrics (views, likes, shares…) and upgrades the agent itself: rewritten prompts, tighter hooks, sharper CTAs.',
+    evolveBtn: vi ? 'Tiến hoá Agent — bước tiếp theo →' : 'Evolve Agent — the next step →',
+    evolveNote: vi ? 'Mở tab "Tiến hoá Agent" với số liệu dưới đây đã điền sẵn.' : 'Opens the "Evolve Agent" tab with these metrics prefilled.',
+    csvDone: vi ? 'Đã tải file CSV' : 'CSV downloaded',
+  };
+  const [range, setRange] = useState(T.ranges[2]);
+  const [toast, setToast] = useState('');
+  const showToast = (msg) => {
+    setToast(msg);
+    window.clearTimeout(showToast._t);
+    showToast._t = window.setTimeout(() => setToast(''), 2200);
+  };
 
   // Build SVG polyline points for engagement chart.
   const linePoints = useMemo(() => {
@@ -79,11 +115,45 @@ const Reports = () => {
   const followers = '12.4K';
   const impressions = '512K';
 
+  // Real CSV export of the stats + top-content table (was a dead button).
+  const exportCsv = () => {
+    const esc = (v) => `"${String(v).replace(/"/g, '""')}"`;
+    const rows = [];
+    rows.push([T.reach, T.engagement, T.followers, T.impressions].map(esc).join(','));
+    rows.push([totalReach, engagementRate, followers, impressions].map(esc).join(','));
+    rows.push('');
+    rows.push([T.colContent, T.colPlatform, T.colViews, T.colLikes, T.colComments, T.colShares].map(esc).join(','));
+    TOP_CONTENT.forEach((c) => rows.push([c.title, c.platform, c.views, c.likes, c.comments, c.shares].map(esc).join(',')));
+    const blob = new Blob([`\uFEFF${rows.join('\n')}`], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'ai-social-report.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast(T.csvDone);
+  };
+
+  // The user's requested loop: after analysing publishing results, hand the
+  // metrics to the Agent Evolution panel (prefilled) so the agent can improve
+  // itself from real data.
+  const evolveFromResults = () => {
+    const metrics = TOP_CONTENT.map((c, i) => {
+      const viLine = `Bài ${i + 1} (${c.platform}, ${c.type === 'video' ? 'video' : 'ảnh'}): "${c.title}" — ${c.views} hiển thị, ${c.likes.toLocaleString('vi-VN')} thích, ${c.comments} bình luận, ${c.shares} chia sẻ`;
+      const enLine = `Post ${i + 1} (${c.platform}, ${c.type === 'video' ? 'video' : 'image'}): "${c.title}" — ${c.views} views, ${c.likes.toLocaleString('en-US')} likes, ${c.comments} comments, ${c.shares} shares`;
+      return vi ? viLine : enLine;
+    }).join('\n');
+    try {
+      sessionStorage.setItem('aiSocialEvolveHandoff', JSON.stringify({ results: metrics, ts: Date.now() }));
+    } catch { /* ignore */ }
+    navigate('/prompts?tab=evolve');
+  };
+
   return (
     <div className="rp-page">
       <div className="rp-toolbar">
         <div className="rp-range">
-          {RANGE_OPTIONS.map((r) => (
+          {T.ranges.map((r) => (
             <button
               key={r}
               type="button"
@@ -94,22 +164,24 @@ const Reports = () => {
             </button>
           ))}
         </div>
-        <button type="button" className="rp-export">Xuất CSV</button>
+        <button type="button" className="rp-export" onClick={exportCsv}>
+          <FontAwesomeIcon icon={faDownload} /> {T.exportCsv}
+        </button>
       </div>
 
       <div className="rp-stats-grid">
-        <StatTile icon={faEye} label="Lượt tiếp cận" value={totalReach} delta="+18%" dir="up" />
-        <StatTile icon={faHeart} label="Tỷ lệ tương tác" value={engagementRate} delta="+0.6 pp" dir="up" />
-        <StatTile icon={faUsers} label="Người theo dõi" value={followers} delta="+1.2K" dir="up" />
-        <StatTile icon={faShare} label="Lượt hiển thị" value={impressions} delta="-3%" dir="down" />
+        <StatTile icon={faEye} label={T.reach} value={totalReach} delta="+18%" dir="up" />
+        <StatTile icon={faHeart} label={T.engagement} value={engagementRate} delta="+0.6 pp" dir="up" />
+        <StatTile icon={faUsers} label={T.followers} value={followers} delta="+1.2K" dir="up" />
+        <StatTile icon={faShare} label={T.impressions} value={impressions} delta="-3%" dir="down" />
       </div>
 
       <div className="rp-grid-2">
         <section className="rp-card rp-line-card">
           <header className="rp-card-head">
             <div>
-              <h3>Xu hướng tương tác</h3>
-              <p className="muted">Lượt thích + bình luận + chia sẻ trong {range.toLowerCase()}</p>
+              <h3>{T.trendTitle}</h3>
+              <p className="muted">{T.trendSub(range)}</p>
             </div>
           </header>
           <div className="rp-line-chart">
@@ -136,8 +208,8 @@ const Reports = () => {
         <section className="rp-card rp-donut-card">
           <header className="rp-card-head">
             <div>
-              <h3>Theo nền tảng</h3>
-              <p className="muted">Phân bổ tương tác theo kênh</p>
+              <h3>{T.platformTitle}</h3>
+              <p className="muted">{T.platformSub}</p>
             </div>
           </header>
           <div className="rp-donut-wrap">
@@ -165,7 +237,7 @@ const Reports = () => {
             </svg>
             <div className="rp-donut-center">
               <strong>100%</strong>
-              <small>tương tác</small>
+              <small>{vi ? 'tương tác' : 'engagement'}</small>
             </div>
           </div>
           <ul className="rp-donut-legend">
@@ -182,18 +254,18 @@ const Reports = () => {
       <section className="rp-card rp-top-card">
         <header className="rp-card-head">
           <div>
-            <h3>Nội dung nổi bật</h3>
-            <p className="muted">Top 4 bài có tương tác cao nhất trong {range.toLowerCase()}</p>
+            <h3>{T.topTitle}</h3>
+            <p className="muted">{T.topSub(range)}</p>
           </div>
         </header>
         <div className="rp-top-table">
           <div className="rp-top-row rp-top-head">
-            <span>Nội dung</span>
-            <span>Nền tảng</span>
-            <span>Hiển thị</span>
-            <span>Thích</span>
-            <span>BL</span>
-            <span>Chia sẻ</span>
+            <span>{T.colContent}</span>
+            <span>{T.colPlatform}</span>
+            <span>{T.colViews}</span>
+            <span>{T.colLikes}</span>
+            <span>{T.colComments}</span>
+            <span>{T.colShares}</span>
           </div>
           {TOP_CONTENT.map((c) => (
             <div key={c.id} className="rp-top-row">
@@ -210,6 +282,20 @@ const Reports = () => {
           ))}
         </div>
       </section>
+
+      {/* Close the loop: analyse publishing results -> evolve the agent. */}
+      <section className="rp-card rp-evolve-card">
+        <span className="rp-evolve-icon"><FontAwesomeIcon icon={faDna} /></span>
+        <div className="rp-evolve-body">
+          <h3>{T.evolveTitle}</h3>
+          <p className="muted">{T.evolveSub}</p>
+        </div>
+        <button type="button" className="rp-evolve-btn" onClick={evolveFromResults} title={T.evolveNote}>
+          <FontAwesomeIcon icon={faDna} /> {T.evolveBtn}
+        </button>
+      </section>
+
+      {toast && <div className="ai-toast">{toast}</div>}
     </div>
   );
 };

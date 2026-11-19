@@ -307,7 +307,14 @@ const AgentStudio = ({ user }) => {
   const [lang] = useLang();
   const navigate = useNavigate();
   const T = LANG_STRINGS[lang];
-  const [tab, setTab] = useState('agent');
+  // Tab can be deep-linked (?tab=quick / ?tab=evolve) from Smart Prompt
+  // ("Mở trong Prompt Studio") and Reports ("Tiến hoá Agent từ kết quả").
+  const [tab, setTab] = useState(() => {
+    try {
+      const t = new URLSearchParams(window.location.search).get('tab');
+      return ['agent', 'quick', 'evolve'].includes(t) ? t : 'agent';
+    } catch { return 'agent'; }
+  });
   const [mode, setMode] = useState('wizard'); // 'wizard' (default) | 'advanced'
 
   const [userAgents, setUserAgents] = useState(loadUserAgents);

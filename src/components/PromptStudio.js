@@ -22,6 +22,8 @@ const looksVietnamese = (text) => /[ăâêôơưđăâêôơưđàáảãạằ�
 
 export default function PromptStudio({ user, embedded = false }) {
   const navigate = useNavigate();
+  // Smart Prompt "Mở trong Prompt Studio" hands its prompt over via
+  // sessionStorage — prefill the editor so the draft is one click away.
   const [selectedId, setSelectedId] = useState(promptTemplates[0].id);
   const [category, setCategory] = useState('All');
   const [query, setQuery] = useState('');
@@ -55,6 +57,14 @@ export default function PromptStudio({ user, embedded = false }) {
 
   useEffect(() => {
     checkService();
+    // Prefill from the Smart Prompt handoff (opens with the crafted prompt).
+    try {
+      const raw = JSON.parse(sessionStorage.getItem('aiSocialQuickHandoff') || 'null');
+      if (raw && typeof raw.prompt === 'string' && raw.prompt.trim()) {
+        setPrompt(String(raw.prompt).slice(0, 4000));
+        sessionStorage.removeItem('aiSocialQuickHandoff');
+      }
+    } catch { /* ignore */ }
     if (supabase && user?.id) {
       supabase.from('user_settings').select('brand_voice').eq('user_id', user.id).maybeSingle()
         .then(({ data }) => { if (data) { setBrandVoice(data.brand_voice || ''); localStorage.setItem('socialMediaBrandVoice', data.brand_voice || ''); } });
