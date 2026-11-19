@@ -304,6 +304,8 @@ const AILibrary = forwardRef(({ user }, ref) => {
 
   // Wizard step 4 handoff (b3 -> b4): arriving from Create Image pre-fills the
   // idea (the same prompt behind the generated images) and opens the builder.
+  // S4: consume once on mount — without this, every later visit to /ai-library
+  // would re-open the video modal with the stale idea from a previous handoff.
   useEffect(() => {
     try {
       const raw = JSON.parse(sessionStorage.getItem('aiSocialVideoHandoff') || 'null');
@@ -312,6 +314,7 @@ const AILibrary = forwardRef(({ user }, ref) => {
         setModalOpen(true);
         setStage('input');
       }
+      sessionStorage.removeItem('aiSocialVideoHandoff');
     } catch { /* ignore */ }
   }, []);
 

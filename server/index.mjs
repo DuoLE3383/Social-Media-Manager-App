@@ -1159,7 +1159,20 @@ function parseEvolvedAgent(raw) {
   const steps = data.steps
     .filter((s) => s && typeof s.prompt === 'string' && s.prompt.trim())
     .slice(0, 12)
-    .map((s, i) => ({ title: String(s.title || `Bước ${i + 1}`).slice(0, 120), prompt: String(s.prompt).slice(0, 6_000) }));
+    .map((s, i) => {
+      let prompt = String(s.prompt).slice(0, 6_000);
+      // S10: every step must keep the wizard variables. Step 1 needs {{input}};
+      // later steps need {{input}} or {{prev}}. If the model dropped them
+      // (small local models often do), auto-append so the agent still works.
+      const hasInput = prompt.includes('{{input}}');
+      const hasPrev = prompt.includes('{{prev}}');
+      if (i === 0 && !hasInput) {
+        prompt = `${prompt}\n\nĐề bài: {{input}}`;
+      } else if (i > 0 && !hasInput && !hasPrev) {
+        prompt = `${prompt}\n\nDựa vào kết quả bước trước:\n{{prev}}\n\nĐề bài: {{input}}`;
+      }
+      return { title: String(s.title || `Bước ${i + 1}`).slice(0, 120), prompt };
+    });
   if (!steps.length) return null;
   return {
     name: typeof data.name === 'string' ? data.name.trim().slice(0, 120) : '',

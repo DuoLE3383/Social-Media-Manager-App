@@ -138,10 +138,13 @@ const CreateImage = () => {
 
   // Wizard handoff (b1 + b2 -> b3): prefill the image prompt with the Smart
   // Prompt idea and keep the agent copy as visible context.
+  // S4: consume the handoff once on mount so a later revisit (without a new
+  // handoff) does not re-show the stale "From steps 1 & 2" bar.
   useEffect(() => {
     if (agentContext?.prompt && !prompt.trim()) {
       setPrompt(String(agentContext.prompt).slice(0, 900));
     }
+    try { sessionStorage.removeItem(IMAGE_HANDOFF_KEY); } catch { /* ignore */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -280,13 +283,23 @@ const CreateImage = () => {
       </div>
 
       {agentContext && (
-        <div className="ci-handoff-bar">
+        <div className={`ci-handoff-bar${agentContext?.content ? ' has-content' : ' idea-only'}`}>
           <span className="ci-handoff-icon"><FontAwesomeIcon icon={faRobot} /></span>
           <div className="ci-handoff-text">
-            <strong>{lang === 'vi' ? 'Từ bước 1 & 2 (wizard):' : 'From steps 1 & 2 (wizard):'}</strong>{' '}
-            {agentContext.idea ? <em>“{agentContext.idea.length > 90 ? `${agentContext.idea.slice(0, 90)}…` : agentContext.idea}”</em> : null}
-            {agentContext.account ? <span className="ci-handoff-account"> · {lang === 'vi' ? 'Tài khoản' : 'Account'}: {agentContext.account}</span> : null}
-            {agentContext.content ? <small> · {lang === 'vi' ? 'Bài viết của agent' : 'Agent copy'}: {agentContext.content.slice(0, 140)}…</small> : null}
+            {agentContext.content ? (
+              <>
+                <strong>{lang === 'vi' ? 'Từ bước 1 & 2 (wizard):' : 'From steps 1 & 2 (wizard):'}</strong>{' '}
+                {agentContext.idea ? <em>“{agentContext.idea.length > 90 ? `${agentContext.idea.slice(0, 90)}…` : agentContext.idea}”</em> : null}
+                {agentContext.account ? <span className="ci-handoff-account"> · {lang === 'vi' ? 'Tài khoản' : 'Account'}: {agentContext.account}</span> : null}
+                <small> · {lang === 'vi' ? 'Bài viết của agent' : 'Agent copy'}: {agentContext.content.slice(0, 140)}…</small>
+              </>
+            ) : (
+              <>
+                <strong>{lang === 'vi' ? 'Từ Smart Prompt (bước 1):' : 'From Smart Prompt (step 1):'}</strong>{' '}
+                <em>“{agentContext.idea ? (agentContext.idea.length > 120 ? `${agentContext.idea.slice(0, 120)}…` : agentContext.idea) : agentContext.prompt?.slice(0, 120)}”</em>
+                <small> · {lang === 'vi' ? 'Chưa chạy agent — tạo ảnh minh hoạ cho ý tưởng này.' : 'No agent run yet — generating images for this idea.'}</small>
+              </>
+            )}
           </div>
           <button type="button" className="ci-handoff-close" onClick={dismissAgentContext} aria-label={lang === 'vi' ? 'Bỏ ngữ cảnh' : 'Dismiss context'}>
             <FontAwesomeIcon icon={faClose} />

@@ -13,6 +13,7 @@ import {
   faBolt,
   faRobot,
   faImage,
+  faVideo,
 } from '@fortawesome/free-solid-svg-icons';
 import { useLang } from '../lib/i18n';
 
@@ -167,6 +168,21 @@ const SmartPrompt = () => {
     navigate('/create-image');
   };
 
+  // Symmetric shortcut: skip the agent AND images, go straight to the video
+  // builder (wizard step 4). The video builder writes its own scene script and
+  // generates per-scene images, so this works without steps 2 and 3.
+  const sendToVideo = () => {
+    if (!generatedPrompt) return;
+    try {
+      sessionStorage.setItem('aiSocialVideoHandoff', JSON.stringify({
+        idea: generatedPrompt,
+        account: '',
+        ts: Date.now(),
+      }));
+    } catch { /* private mode */ }
+    navigate('/ai-library');
+  };
+
   const surprise = () => {
     const allCats = Object.keys(IDEAS);
     const cat = allCats[Math.floor(Math.random() * allCats.length)];
@@ -271,17 +287,20 @@ const SmartPrompt = () => {
               onClick={copyPrompt}
               disabled={!generatedPrompt}
             >
-              <FontAwesomeIcon icon={faCopy} /> Sao chép
+              <FontAwesomeIcon icon={faCopy} /> {lang === 'vi' ? 'Sao chép' : 'Copy'}
             </button>
             <button
               type="button"
               className="sp-run-btn"
               disabled={!generatedPrompt}
               onClick={sendToQuickStudio}
+              title={lang === 'vi' ? 'Đi thẳng tới Prompt nhanh (LLM 1 bước)' : 'Go straight to Quick prompt (single-shot LLM)'}
             >
-              <FontAwesomeIcon icon={faWandMagicSparkles} /> Mở trong Prompt Studio
+              <FontAwesomeIcon icon={faWandMagicSparkles} /> {lang === 'vi' ? 'Mở trong Prompt nhanh' : 'Open in Quick prompt'}
             </button>
           </div>
+          {/* Primary action — wizard step 2: the agent sticks to the project
+              account for the whole project. */}
           <button
             type="button"
             className="sp-agent-btn"
@@ -289,17 +308,33 @@ const SmartPrompt = () => {
             disabled={!generatedPrompt}
             title={lang === 'vi' ? 'Bước 2: tạo agent bám theo tài khoản suốt dự án' : 'Step 2: create an agent that follows your account for the whole project'}
           >
-            <FontAwesomeIcon icon={faRobot} /> Tạo Agent từ prompt này — bước 2 →
+            <FontAwesomeIcon icon={faRobot} /> {lang === 'vi' ? 'Tạo Agent từ prompt này — bước 2 →' : 'Build an Agent from this prompt — step 2 →'}
           </button>
-          <button
-            type="button"
-            className="sp-image-btn"
-            onClick={sendToImage}
-            disabled={!generatedPrompt}
-            title={lang === 'vi' ? 'Bỏ qua agent, tạo ảnh minh hoạ ngay từ prompt này (bước 3)' : 'Skip the agent and create images from this prompt right away (step 3)'}
-          >
-            <FontAwesomeIcon icon={faImage} /> Tạo ảnh trực tiếp — bước 3 →
-          </button>
+          {/* Secondary shortcuts — skip the agent and jump straight to a media
+              step. Symmetric (b3 and b4) so users see both paths exist. */}
+          <div className="sp-shortcuts" aria-label={lang === 'vi' ? 'Đường tắt' : 'Shortcuts'}>
+            <span className="sp-shortcuts-label">{lang === 'vi' ? 'Đường tắt (bỏ qua agent):' : 'Shortcuts (skip agent):'}</span>
+            <div className="sp-shortcuts-row">
+              <button
+                type="button"
+                className="sp-shortcut-btn"
+                onClick={sendToImage}
+                disabled={!generatedPrompt}
+                title={lang === 'vi' ? 'Bỏ qua agent, tạo ảnh minh hoạ ngay (bước 3)' : 'Skip the agent, create images right away (step 3)'}
+              >
+                <FontAwesomeIcon icon={faImage} /> {lang === 'vi' ? 'Ảnh (b3)' : 'Images (b3)'}
+              </button>
+              <button
+                type="button"
+                className="sp-shortcut-btn"
+                onClick={sendToVideo}
+                disabled={!generatedPrompt}
+                title={lang === 'vi' ? 'Bỏ qua agent và ảnh, ghép video ngay (bước 4). Video tự sinh ảnh từng cảnh.' : 'Skip agent and images, build the video now (step 4). The video generates its own scene images.'}
+              >
+                <FontAwesomeIcon icon={faVideo} /> {lang === 'vi' ? 'Video (b4)' : 'Video (b4)'}
+              </button>
+            </div>
+          </div>
         </section>
       </div>
 

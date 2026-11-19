@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faImage, faVideo, faArrowRight } from '@fortawesome/free-solid-svg-icons';
+import { faImage, faVideo, faArrowRight, faDna } from '@fortawesome/free-solid-svg-icons';
 import { promptTemplates } from '../data/promptTemplates';
 import { supabase } from '../lib/supabase';
 import { apiUrl } from '../lib/api';
@@ -231,6 +231,18 @@ export default function PromptStudio({ user, embedded = false }) {
     } catch { /* ignore */ }
     navigate('/ai-library');
   };
+  // S9: bridge PromptStudio -> Evolve. The quick tab had no path into the
+  // evolution loop — now its finished draft can feed the Evolve panel as
+  // "real results" (single-shot output instead of an agent transcript).
+  const sendResultToEvolve = () => {
+    try {
+      sessionStorage.setItem('aiSocialEvolveHandoff', JSON.stringify({
+        results: String(result || '').slice(0, 8000),
+        ts: Date.now(),
+      }));
+    } catch { /* ignore */ }
+    navigate('/prompts?tab=evolve');
+  };
 
   const saveVoice = (value) => {
     setBrandVoice(value); localStorage.setItem('socialMediaBrandVoice', value);
@@ -306,8 +318,11 @@ export default function PromptStudio({ user, embedded = false }) {
                 <button type="button" className="btn btn-outline-secondary ps-media-btn" onClick={sendResultToVideo} title="Đưa ý tưởng sang Thư viện AI để ghép video (bước 4)">
                   <FontAwesomeIcon icon={faVideo} /> Tạo video — bước 4 →
                 </button>
+                <button type="button" className="btn btn-outline-secondary ps-media-btn ps-evolve-btn" onClick={sendResultToEvolve} title="Đưa kết quả này vào tab Tiến hoá Agent">
+                  <FontAwesomeIcon icon={faDna} /> Tiến hoá Agent →
+                </button>
               </div>
-              <p className="ps-chain-hint"><FontAwesomeIcon icon={faArrowRight} /> Trình tự: tạo ảnh (b3) → ghép video (b4) → Lịch đăng.</p>
+              <p className="ps-chain-hint"><FontAwesomeIcon icon={faArrowRight} /> Trình tự: tạo ảnh (b3) → ghép video (b4) → Lịch đăng. Hoặc đưa kết quả vào Tiến hoá Agent để AI nâng cấp chính agent.</p>
             </div>}</section>}
         </section>
       </div>

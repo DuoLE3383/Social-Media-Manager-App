@@ -1572,7 +1572,16 @@ html[data-theme="dark"] .app-lang-toggle button.active { background: #3a3660; co
 .as-tabs button {
   border: 0; background: transparent; padding: 8px 16px; border-radius: 9px; cursor: pointer;
   font-weight: 600; font-size: 13px; color: #6b6890; display: inline-flex; align-items: center; gap: 8px;
+  flex-direction: column; align-items: flex-start; gap: 1px; line-height: 1.25;
+  text-align: left;
 }
+.as-tabs button .as-tab-label { display: inline-flex; align-items: center; gap: 6px; }
+.as-tabs button .as-tab-sub {
+  font-size: 10.5px; font-weight: 500; color: #888599; letter-spacing: .01em;
+}
+.as-tabs button.active .as-tab-sub { color: rgba(255,255,255,.78); }
+html[data-theme="dark"] .as-tabs button .as-tab-sub { color: #8b87a8; }
+html[data-theme="dark"] .as-tabs button.active .as-tab-sub { color: rgba(255,255,255,.78); }
 .as-tabs button.active { background: #5047a8; color: #fff; }
 .as-notice { margin: 0; }
 
@@ -2172,6 +2181,31 @@ html[data-theme="dark"] .sp-image-btn:hover:not(:disabled) { background: #2c2a44
 html[data-theme="dark"] .sp-agent-btn { background: #34324a; }
 html[data-theme="dark"] .sp-agent-btn:hover:not(:disabled) { background: #5047a8; }
 
+/* S1+S5: SmartPrompt shortcut row — secondary actions, clearly less prominent
+   than the primary "Tạo Agent — bước 2" button so the hierarchy is obvious. */
+.sp-shortcuts {
+  margin-top: 10px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.sp-shortcuts-label {
+  font-size: .72rem; font-weight: 600; color: #888599; text-transform: uppercase; letter-spacing: .04em;
+}
+html[data-theme="dark"] .sp-shortcuts-label { color: #8b87a8; }
+.sp-shortcuts-row { display: flex; gap: 8px; }
+.sp-shortcut-btn {
+  flex: 1;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  background: transparent; color: #555;
+  border: 1px solid #d8d5ec; border-radius: 8px;
+  padding: 7px 10px; font-size: .78rem; font-weight: 500; cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.sp-shortcut-btn:hover:not(:disabled) { background: #f4f3fb; border-color: #9a8eee; color: #4a3fd8; }
+.sp-shortcut-btn:disabled { opacity: .45; cursor: not-allowed; }
+html[data-theme="dark"] .sp-shortcut-btn { color: #b6b3d0; border-color: #3a3760; }
+html[data-theme="dark"] .sp-shortcut-btn:hover:not(:disabled) { background: #2c2a44; color: #b9b0ff; border-color: #6158d9; }
+/* Old sp-image-btn style kept for backward compat — no longer rendered. */
+
 /* ---------- Create Image: wizard handoff bar + step-4 button ---------- */
 .ci-handoff-bar {
   display: flex; align-items: flex-start; gap: 12px;
@@ -2197,6 +2231,28 @@ html[data-theme="dark"] .ci-handoff-text { color: #b5b3c8; }
 html[data-theme="dark"] .ci-handoff-text strong { color: #e8e7f0; }
 html[data-theme="dark"] .ci-handoff-text em { color: #a5a0ff; }
 html[data-theme="dark"] .ci-handoff-close { color: #9a98ac; }
+
+/* S3: idea-only variant of the handoff bar — when the user skipped the agent
+   (b1 -> b3 shortcut) the bar is shown with a softer style and honest label. */
+.ci-handoff-bar.idea-only { background: #f8f7fc; border-style: dashed; }
+html[data-theme="dark"] .ci-handoff-bar.idea-only { background: #232138; }
+
+/* S7: Reports sample-data notice — small amber banner so users know the
+   "Tiến hoá từ kết quả" button feeds sample metrics, not real ones. */
+.rp-sample-notice {
+  display: flex; align-items: center; gap: 10px;
+  background: #fff7e6; border: 1px solid #ffd591; border-radius: 10px;
+  padding: 8px 14px; font-size: .82rem; color: #ad6800;
+}
+.rp-sample-notice svg { color: #d48806; flex-shrink: 0; }
+html[data-theme="dark"] .rp-sample-notice { background: #2b2618; border-color: #5b4910; color: #ffc53d; }
+html[data-theme="dark"] .rp-sample-notice svg { color: #ffc53d; }
+
+/* S9: PromptStudio "Tiến hoá Agent" button — visually distinct (DNA icon). */
+.ps-evolve-btn { border-color: #c5b5f0; color: #5a3fd8; }
+.ps-evolve-btn:hover:not(:disabled) { background: #f4f3fb; border-color: #7c6cf0; color: #4a3fd8; }
+html[data-theme="dark"] .ps-evolve-btn { color: #c8bff5; border-color: #3a3760; }
+html[data-theme="dark"] .ps-evolve-btn:hover:not(:disabled) { background: #2c2a44; color: #b9b0ff; border-color: #6158d9; }
 html[data-theme="dark"] .ci-handoff-close:hover { background: #34334a; color: #e5e3f0; }
 
 .ci-to-video-btn {

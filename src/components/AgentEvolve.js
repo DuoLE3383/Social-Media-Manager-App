@@ -76,10 +76,16 @@ const AgentEvolve = ({ agents, account, idea, onApply }) => {
   // Reports hands its analysed post metrics over via sessionStorage
   // (aiSocialEvolveHandoff): prefill the results box (and pick the agent if
   // given) so "Tiến hoá Agent từ kết quả đăng bài" is one click away.
+  // S4: consume once on mount — otherwise the same metrics would re-prefill
+  // the box on every later visit to the Evolve tab.
   const handoff = useMemo(() => {
     try {
       const raw = JSON.parse(sessionStorage.getItem('aiSocialEvolveHandoff') || 'null');
-      return raw && (typeof raw.results === 'string' || typeof raw.agentId === 'string') ? raw : null;
+      if (raw && (typeof raw.results === 'string' || typeof raw.agentId === 'string')) {
+        try { sessionStorage.removeItem('aiSocialEvolveHandoff'); } catch { /* ignore */ }
+        return raw;
+      }
+      return null;
     } catch { return null; }
   }, []);
   const [selectedId, setSelectedId] = useState(handoff?.agentId && agents.some((a) => a.id === handoff.agentId) ? handoff.agentId : (agents[0]?.id || ''));

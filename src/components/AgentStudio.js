@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faRobot,
@@ -133,6 +133,9 @@ const WIZ_STEPS = [
 const LANG_STRINGS = {
   vi: {
     tabs: { agent: 'Agent Builder', quick: 'Prompt nhanh', evolve: 'Tiến hoá Agent' },
+    tabsAgentSub: 'Nhiều bước · bám tài khoản',
+    tabsQuickSub: '1 bước · LLM nhanh',
+    tabsEvolveSub: 'Phân tích kết quả · nâng cấp agent',
     modeWizard: 'Chế độ wizard',
     modeAdvanced: 'Giao diện nâng cao',
     // Wizard rail + navigation
@@ -214,6 +217,9 @@ const LANG_STRINGS = {
   },
   en: {
     tabs: { agent: 'Agent Builder', quick: 'Quick prompt', evolve: 'Evolve Agent' },
+    tabsAgentSub: 'Multi-step · account-bound',
+    tabsQuickSub: 'Single-shot · fast LLM',
+    tabsEvolveSub: 'Analyse results · upgrade agent',
     modeWizard: 'Wizard mode',
     modeAdvanced: 'Advanced studio',
     next: 'Next',
@@ -315,6 +321,18 @@ const AgentStudio = ({ user }) => {
       return ['agent', 'quick', 'evolve'].includes(t) ? t : 'agent';
     } catch { return 'agent'; }
   });
+  // Sync the tab with URL ?tab= changes when the user navigates between
+  // /prompts?tab=quick -> /prompts?tab=evolve (or any other combo) WITHOUT
+  // unmounting AgentStudio. Without this, the PromptStudio "Tiến hoá Agent →"
+  // bridge would update the URL but leave the previous tab rendered.
+  const location = useLocation();
+  useEffect(() => {
+    try {
+      const t = new URLSearchParams(location.search).get('tab');
+      const next = ['agent', 'quick', 'evolve'].includes(t) ? t : 'agent';
+      setTab((cur) => (cur === next ? cur : next));
+    } catch { /* ignore */ }
+  }, [location.search]);
   const [mode, setMode] = useState('wizard'); // 'wizard' (default) | 'advanced'
 
   const [userAgents, setUserAgents] = useState(loadUserAgents);
@@ -345,6 +363,13 @@ const AgentStudio = ({ user }) => {
     return handoff ? String(handoff.prompt).slice(0, 400) : '';
   });
   const handoffRef = useRef(readIdeaHandoff());
+
+  // S4: consume the Smart-Prompt handoff once on mount — without this, the
+  // "Từ Smart Prompt" badge keeps re-appearing every time the user revisits
+  // /prompts, even after they cleared the project context manually.
+  useEffect(() => {
+    try { sessionStorage.removeItem(IDEA_HANDOFF_KEY); } catch { /* ignore */ }
+  }, []);
 
   useEffect(() => {
     try { localStorage.setItem(PROJECT_ACCOUNT_KEY, accountName.trim()); } catch { /* ignore */ }
@@ -507,16 +532,16 @@ const AgentStudio = ({ user }) => {
     showToast(T.deleted);
   };
 
-  // "Tiến hoá Agent" apply: the evolved version REPLACES the source agent when
-  // it is a saved user agent, or is stored as a new copy when the source is a
-  // preset. The user is dropped onto the steps view to review the new pipeline.
+  // S8: "Tiến hoá Agent" apply — ALWAYS creates a new agent copy with
+  // evolvedFrom/evolvedAt metadata. The source agent (preset or user-saved)
+  // stays intact so the user can compare versions and roll back. The user is
+  // dropped onto the steps view to review the new pipeline.
   const applyEvolved = ({ source, evolved }) => {
     if (!source || !evolved || !Array.isArray(evolved.steps) || !evolved.steps.length) return;
-    const exists = userAgents.some((a) => a.id === source.id);
     const clean = {
-      id: source.builtin || !exists ? `agent-${Date.now()}` : source.id,
+      id: `agent-${Date.now()}`,
       builtin: false,
-      emoji: source.emoji || '🧬',
+      emoji: '🧬',
       name: String(evolved.name || source.name || 'Agent').slice(0, 80),
       desc: String(evolved.desc || source.desc || '').slice(0, 200),
       language: source.language || 'vi',
@@ -526,12 +551,12 @@ const AgentStudio = ({ user }) => {
       evolvedAt: Date.now(),
       steps: evolved.steps.map((s) => ({ title: String(s.title || '').slice(0, 120), prompt: String(s.prompt || '').slice(0, 6000) })),
     };
-    persistAgents(exists && !source.builtin ? userAgents.map((a) => (a.id === clean.id ? clean : a)) : [...userAgents, clean]);
+    persistAgents([...userAgents, clean]);
     selectAgent(clean);
     setTab('agent');
     setMode('wizard');
     setWStep(1);
-    showToast(lang === 'vi' ? 'Đã tiến hoá agent — xem kịch bản mới rồi chạy thử nhé' : 'Agent evolved — review the new pipeline and test it');
+    showToast(lang === 'vi' ? 'Đã tạo bản tiến hoá mới — bản gốc vẫn còn nguyên' : 'Evolved copy created — original kept intact');
   };
 
   const exportAgent = () => {
@@ -971,13 +996,16 @@ const AgentStudio = ({ user }) => {
     <div className="as-page">
       <div className="as-tabs" role="tablist">
         <button type="button" role="tab" className={tab === 'agent' ? 'active' : ''} onClick={() => setTab('agent')}>
-          <FontAwesomeIcon icon={faRobot} /> {T.tabs.agent}
+          <FontAwesomeIcon icon={faRobot} /> <span className="as-tab-label">{T.tabs.agent}</span>
+          <small className="as-tab-sub">{T.tabsAgentSub}</small>
         </button>
         <button type="button" role="tab" className={tab === 'quick' ? 'active' : ''} onClick={() => setTab('quick')}>
-          <FontAwesomeIcon icon={faBolt} /> {T.tabs.quick}
+          <FontAwesomeIcon icon={faBolt} /> <span className="as-tab-label">{T.tabs.quick}</span>
+          <small className="as-tab-sub">{T.tabsQuickSub}</small>
         </button>
         <button type="button" role="tab" className={tab === 'evolve' ? 'active' : ''} onClick={() => setTab('evolve')}>
-          <FontAwesomeIcon icon={faDna} /> {T.tabs.evolve}
+          <FontAwesomeIcon icon={faDna} /> <span className="as-tab-label">{T.tabs.evolve}</span>
+          <small className="as-tab-sub">{T.tabsEvolveSub}</small>
         </button>
         {tab === 'agent' && (
           <button type="button" className="as-mode-toggle" onClick={() => setMode((m) => (m === 'wizard' ? 'advanced' : 'wizard'))}>

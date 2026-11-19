@@ -12,6 +12,7 @@ import {
   faVideo,
   faDna,
   faDownload,
+  faTriangleExclamation,
 } from '@fortawesome/free-solid-svg-icons';
 import { useLang } from '../lib/i18n';
 
@@ -85,6 +86,7 @@ const Reports = () => {
     evolveSub: vi ? 'AI phân tích số liệu bài đăng (hiển thị, thích, chia sẻ…) rồi tự nâng cấp agent: viết lại prompt, rút gọn hook, tập trung CTA.' : 'The AI analyses post metrics (views, likes, shares…) and upgrades the agent itself: rewritten prompts, tighter hooks, sharper CTAs.',
     evolveBtn: vi ? 'Tiến hoá Agent — bước tiếp theo →' : 'Evolve Agent — the next step →',
     evolveNote: vi ? 'Mở tab "Tiến hoá Agent" với số liệu dưới đây đã điền sẵn.' : 'Opens the "Evolve Agent" tab with these metrics prefilled.',
+    sampleWarn: vi ? 'Số liệu đang là dữ liệu mẫu. Kết nối kênh thật ở trang Kết nối để có số liệu thật.' : 'Metrics are sample data. Connect real channels in Connections to see real data.',
     csvDone: vi ? 'Đã tải file CSV' : 'CSV downloaded',
   };
   const [range, setRange] = useState(T.ranges[2]);
@@ -136,21 +138,35 @@ const Reports = () => {
 
   // The user's requested loop: after analysing publishing results, hand the
   // metrics to the Agent Evolution panel (prefilled) so the agent can improve
-  // itself from real data.
+  // itself from real data. S7: also send the most recently used agentId so the
+  // Evolve panel picks the right agent automatically (instead of always
+  // defaulting to agents[0]).
   const evolveFromResults = () => {
     const metrics = TOP_CONTENT.map((c, i) => {
       const viLine = `Bài ${i + 1} (${c.platform}, ${c.type === 'video' ? 'video' : 'ảnh'}): "${c.title}" — ${c.views} hiển thị, ${c.likes.toLocaleString('vi-VN')} thích, ${c.comments} bình luận, ${c.shares} chia sẻ`;
       const enLine = `Post ${i + 1} (${c.platform}, ${c.type === 'video' ? 'video' : 'image'}): "${c.title}" — ${c.views} views, ${c.likes.toLocaleString('en-US')} likes, ${c.comments} comments, ${c.shares} shares`;
       return vi ? viLine : enLine;
     }).join('\n');
+    let agentId = null;
     try {
-      sessionStorage.setItem('aiSocialEvolveHandoff', JSON.stringify({ results: metrics, ts: Date.now() }));
+      const agents = JSON.parse(localStorage.getItem('aiSocialAgents') || '[]');
+      if (Array.isArray(agents) && agents.length) {
+        // Most recently added/edited user agent is at the end of the array.
+        agentId = agents[agents.length - 1]?.id || null;
+      }
+    } catch { /* ignore */ }
+    try {
+      sessionStorage.setItem('aiSocialEvolveHandoff', JSON.stringify({ results: metrics, agentId, ts: Date.now() }));
     } catch { /* ignore */ }
     navigate('/prompts?tab=evolve');
   };
 
   return (
     <div className="rp-page">
+      <div className="rp-sample-notice" role="note">
+        <FontAwesomeIcon icon={faTriangleExclamation} />
+        <span>{T.sampleWarn}</span>
+      </div>
       <div className="rp-toolbar">
         <div className="rp-range">
           {T.ranges.map((r) => (

@@ -33,8 +33,8 @@ const SUGGESTIONS = {
     en: 'Got the prompt (step 1)? Build an agent from it — the agent sticks to your account for the whole project.',
   },
   '/prompts->/create-image': {
-    vi: 'Agent đã chạy xong (bước 2)? Tạo ảnh minh họa (bước 3) từ prompt (b1) + bài viết của agent (b2), rồi ghép thành video (bước 4).',
-    en: 'Agent run done (step 2)? Create images (step 3) from the prompt (S1) + agent copy (S2), then stitch them into a video (step 4).',
+    vi: 'Agent chạy xong (bước 2)? Tạo ảnh (bước 3) và/hoặc video (bước 4). Video tự sinh ảnh từng cảnh nên không cần ảnh từ bước 3.',
+    en: 'Agent run done (step 2)? Create images (step 3) and/or video (step 4). The video generates its own scene images, so step 3 is optional.',
   },
   '/create-image->/ai-library': {
     vi: 'Đã có ảnh (bước 3)? Ghép thành video (bước 4) với chuyển cảnh mượt.',
