@@ -26,11 +26,14 @@ import {
   faImage,
   faUser,
   faXmark,
+  faDna,
 } from '@fortawesome/free-solid-svg-icons';
 import { useLang } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
 import { usePromptRunner } from '../hooks/usePromptRunner';
+import { saveAgentRun } from '../lib/agentRuns';
 import PromptStudio from './PromptStudio';
+import AgentEvolve from './AgentEvolve';
 
 const AGENTS_KEY = 'aiSocialAgents';
 const PROJECT_ACCOUNT_KEY = 'aiSocialProjectAccount';
@@ -128,7 +131,7 @@ const WIZ_STEPS = [
 
 const LANG_STRINGS = {
   vi: {
-    tabs: { agent: 'Agent Builder', quick: 'Prompt nhanh' },
+    tabs: { agent: 'Agent Builder', quick: 'Prompt nhanh', evolve: 'Tiến hoá Agent' },
     modeWizard: 'Chế độ wizard',
     modeAdvanced: 'Giao diện nâng cao',
     // Wizard rail + navigation
@@ -206,7 +209,7 @@ const LANG_STRINGS = {
     toImageTitle: 'Đưa prompt (b1) và bài viết của agent (b2) sang Tạo Ảnh',
   },
   en: {
-    tabs: { agent: 'Agent Builder', quick: 'Quick prompt' },
+    tabs: { agent: 'Agent Builder', quick: 'Quick prompt', evolve: 'Evolve Agent' },
     modeWizard: 'Wizard mode',
     modeAdvanced: 'Advanced studio',
     next: 'Next',
@@ -459,6 +462,33 @@ const AgentStudio = ({ user }) => {
     showToast(T.deleted);
   };
 
+  // "Tiến hoá Agent" apply: the evolved version REPLACES the source agent when
+  // it is a saved user agent, or is stored as a new copy when the source is a
+  // preset. The user is dropped onto the steps view to review the new pipeline.
+  const applyEvolved = ({ source, evolved }) => {
+    if (!source || !evolved || !Array.isArray(evolved.steps) || !evolved.steps.length) return;
+    const exists = userAgents.some((a) => a.id === source.id);
+    const clean = {
+      id: source.builtin || !exists ? `agent-${Date.now()}` : source.id,
+      builtin: false,
+      emoji: source.emoji || '🧬',
+      name: String(evolved.name || source.name || 'Agent').slice(0, 80),
+      desc: String(evolved.desc || source.desc || '').slice(0, 200),
+      language: source.language || 'vi',
+      account: accountName.trim(),
+      idea: projectIdea.trim(),
+      evolvedFrom: source.id,
+      evolvedAt: Date.now(),
+      steps: evolved.steps.map((s) => ({ title: String(s.title || '').slice(0, 120), prompt: String(s.prompt || '').slice(0, 6000) })),
+    };
+    persistAgents(exists && !source.builtin ? userAgents.map((a) => (a.id === clean.id ? clean : a)) : [...userAgents, clean]);
+    selectAgent(clean);
+    setTab('agent');
+    setMode('wizard');
+    setWStep(1);
+    showToast(lang === 'vi' ? 'Đã tiến hoá agent — xem kịch bản mới rồi chạy thử nhé' : 'Agent evolved — review the new pipeline and test it');
+  };
+
   const exportAgent = () => {
     const blob = new Blob([JSON.stringify(draft, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -561,6 +591,19 @@ const AgentStudio = ({ user }) => {
         setStepStates([...states]);
       }
       setTotalMs(Date.now() - startedAll);
+      // Persist the finished run so the "Tiến hoá Agent" panel can analyse the
+      // agent's REAL outputs later (this is the evolution feedback loop).
+      if (!cancelledRef.current && states.some((s) => s.status === 'done' && s.text)) {
+        saveAgentRun(draft.id, {
+          input: input.trim().slice(0, 2000),
+          transcript: states
+            .map((s, i) => (s.text ? `— ${lang === 'vi' ? 'Bước' : 'Step'} ${i + 1}: ${draft.steps[i]?.title || ''} —\n${s.text}` : ''))
+            .filter(Boolean)
+            .join('\n\n')
+            .slice(0, 8000),
+          totalMs: Date.now() - startedAll,
+        });
+      }
       if (cancelledRef.current) setNotice(T.cancelNotice);
     } catch (error) {
       setNotice(error.message || 'Agent failed.');
@@ -894,6 +937,9 @@ const AgentStudio = ({ user }) => {
         <button type="button" role="tab" className={tab === 'quick' ? 'active' : ''} onClick={() => setTab('quick')}>
           <FontAwesomeIcon icon={faBolt} /> {T.tabs.quick}
         </button>
+        <button type="button" role="tab" className={tab === 'evolve' ? 'active' : ''} onClick={() => setTab('evolve')}>
+          <FontAwesomeIcon icon={faDna} /> {T.tabs.evolve}
+        </button>
         {tab === 'agent' && (
           <button type="button" className="as-mode-toggle" onClick={() => setMode((m) => (m === 'wizard' ? 'advanced' : 'wizard'))}>
             <FontAwesomeIcon icon={faSliders} /> {mode === 'wizard' ? T.modeAdvanced : T.modeWizard}
@@ -901,7 +947,14 @@ const AgentStudio = ({ user }) => {
         )}
       </div>
 
-      {tab === 'quick' ? (
+      {tab === 'evolve' ? (
+        <AgentEvolve
+          agents={agents}
+          account={accountName.trim()}
+          idea={projectIdea.trim()}
+          onApply={applyEvolved}
+        />
+      ) : tab === 'quick' ? (
         <PromptStudio user={user} embedded />
       ) : mode === 'wizard' ? (
         <>
@@ -987,7 +1040,7 @@ const AgentStudio = ({ user }) => {
                     <span className="as-agent-emoji">{agent.emoji}</span>
                     <span className="as-agent-info">
                       <strong>{agent.name}</strong>
-                      <small>{agent.steps.length} {T.stepsUnit}{agent.builtin ? ' · preset' : ''}</small>
+                      <small>{agent.steps.length} {T.stepsUnit}{agent.builtin ? ' · preset' : ''}{agent.evolvedAt ? ' · 🧬' : ''}</small>
                     </span>
                   </button>
                 ))}

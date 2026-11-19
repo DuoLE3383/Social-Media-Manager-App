@@ -45,11 +45,11 @@ const NAV_LABELS = {
 //   3. MANAGE & PUBLISH — review posts (Feed), schedule them (Publish Plan), measure (Reports)
 //   4. IMAGE & VIDEO    — supporting media produced last (Create Image → AI Library)
 //   5. ACCOUNT          — connections
-// Items with locked:true burn AI/server resources or touch connected accounts,
-// so guests (signed-out visitors in trial mode) see a small lock badge and a
-// "sign in to continue" interstitial instead of the page. Only ONE item per
-// route (the old duplicate "Tạo Video" + "Thư viện AI" pair both pointed at
-// /ai-library — video creation lives inside the AI Library page).
+// Everything is FREE for guests (trial mode): the whole creation pipeline and
+// the AI behind it run with a per-IP rate limit on the server. Only items with
+// locked:true touch the user's real connected social accounts (publishing,
+// connections), so those still show a lock badge and a "sign in to continue"
+// interstitial instead of the page.
 const NAV_SECTIONS = [
   {
     items: [
@@ -59,8 +59,8 @@ const NAV_SECTIONS = [
   {
     labelKey: 'content',
     items: [
-      { to: '/smart-prompt', icon: faWandMagicSparkles, labelKey: 'smartPrompt', activeOn: ['/smart-prompt'], locked: true },
-      { to: '/prompts', icon: faRobot, labelKey: 'agents', activeOn: ['/prompts'], locked: true },
+      { to: '/smart-prompt', icon: faWandMagicSparkles, labelKey: 'smartPrompt', activeOn: ['/smart-prompt'] },
+      { to: '/prompts', icon: faRobot, labelKey: 'agents', activeOn: ['/prompts'] },
     ],
   },
   {
@@ -74,8 +74,8 @@ const NAV_SECTIONS = [
   {
     labelKey: 'media',
     items: [
-      { to: '/create-image', icon: faImage, labelKey: 'createImage', activeOn: ['/create-image'], locked: true },
-      { to: '/ai-library', icon: faVideo, labelKey: 'library', activeOn: ['/ai-library'], locked: true },
+      { to: '/create-image', icon: faImage, labelKey: 'createImage', activeOn: ['/create-image'] },
+      { to: '/ai-library', icon: faVideo, labelKey: 'library', activeOn: ['/ai-library'] },
     ],
   },
   {
@@ -219,7 +219,7 @@ const AppShell = ({ user, theme, onToggleTheme, onLogout, children }) => {
                 <span className="app-sidebar-avatar app-guest-avatar"><FontAwesomeIcon icon={faUser} /></span>
                 <div className="app-sidebar-user-info">
                   <div className="app-sidebar-user-name">{lang === 'vi' ? 'Khách' : 'Guest'}</div>
-                  <Link className="app-sidebar-user-link" to={loginHref}>{lang === 'vi' ? 'Đăng nhập để mở khoá AI' : 'Sign in to unlock AI'}</Link>
+                  <Link className="app-sidebar-user-link" to={loginHref}>{lang === 'vi' ? 'Đăng nhập để đăng bài' : 'Sign in to publish'}</Link>
                 </div>
               </>
             ) : (
@@ -295,8 +295,8 @@ const AppShell = ({ user, theme, onToggleTheme, onLogout, children }) => {
             <FontAwesomeIcon icon={faWandMagicSparkles} className="app-guest-banner-icon" />
             <div className="app-guest-banner-text">
               {lang === 'vi'
-                ? <>Bạn đang <b>dùng thử</b> — duyệt nội dung tự do. Tính năng AI (ảnh, video, agent) và liên quan tài khoản cần <b>đăng nhập</b>.</>
-                : <>You are in <b>trial mode</b> — browse freely. AI features (image, video, agents) and account tools need <b>sign-in</b>.</>}
+                ? <>Bạn đang <b>dùng thử</b> — toàn bộ tính năng AI (gợi ý, agent, ảnh, video) mở miễn phí. Chỉ <b>đăng bài &amp; kết nối tài khoản</b> cần <b>đăng nhập</b>.</>
+                : <>You are in <b>trial mode</b> — every AI feature (ideas, agents, images, video) is free to try. Only <b>publishing &amp; accounts</b> need <b>sign-in</b>.</>}
             </div>
             <Link className="app-login-btn app-guest-banner-btn" to={loginHref}>{lang === 'vi' ? 'Đăng nhập' : 'Sign in'}</Link>
             <button className="app-guest-banner-close" type="button" onClick={dismissGuestBanner} aria-label={lang === 'vi' ? 'Ẩn thông báo' : 'Dismiss notice'}>

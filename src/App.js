@@ -96,9 +96,11 @@ function App() {
           path="/login"
           element={!isAuthenticated ? <Login onLogin={handleLogin} /> : <PostLoginRedirect />}
         />
-        {/* Guest-friendly layout: the shell always renders; only resource-heavy
-            AI pages and account-related pages are gated behind sign-in. Light
-            pages (Overview, Feed, Reports) run on sample data for free trials. */}
+        {/* Guest-friendly layout: the shell always renders. In this build the
+            WHOLE creation pipeline is free to try (ideas, agents, images,
+            video — the server rate-limits guest AI usage per IP). Only
+            publishing & account pages require sign-in, because they touch the
+            user's real connected social accounts. */}
         <Route
           path="/*"
           element={
@@ -109,19 +111,19 @@ function App() {
               onLogout={handleLogout}
             >
               <Routes>
-                {/* Free trial pages: light, sample data, no sign-in needed. */}
+                {/* Free trial pages: light pages AND the whole 4-step creation
+                    wizard (ideas -> agents -> images -> video) run without
+                    sign-in — guests get rate-limited AI access by IP. */}
                 <Route path="/dashboard" element={<Overview user={user || GUEST_USER} />} />
                 <Route path="/overview" element={<Overview user={user || GUEST_USER} />} />
                 <Route path="/feed" element={<WithNext next="publish"><Feed user={user || GUEST_USER} /></WithNext>} />
                 <Route path="/reports" element={<WithNext next="smartPrompt"><Reports user={user || GUEST_USER} /></WithNext>} />
-                {/* Resource-heavy AI pages: require sign-in. Each page ends with
-                    its next-step suggestion, forming the guided wizard chain:
-                    ideas -> write -> image -> video -> schedule -> measure. */}
-                <Route path="/prompts" element={isAuthenticated ? <WithNext next="createImage"><AgentStudio user={user} /></WithNext> : <LoginRequired page="agents" />} />
-                <Route path="/smart-prompt" element={isAuthenticated ? <WithNext next="agents"><SmartPrompt user={user} /></WithNext> : <LoginRequired page="smartPrompt" />} />
-                <Route path="/create-image" element={isAuthenticated ? <WithNext next="library"><CreateImage user={user} /></WithNext> : <LoginRequired page="createImage" />} />
-                <Route path="/ai-library" element={isAuthenticated ? <WithNext next="publish"><AILibrary user={user} /></WithNext> : <LoginRequired page="library" />} />
-                {/* Account-related pages: require sign-in. */}
+                <Route path="/prompts" element={<WithNext next="createImage"><AgentStudio user={user || GUEST_USER} /></WithNext>} />
+                <Route path="/smart-prompt" element={<WithNext next="agents"><SmartPrompt user={user || GUEST_USER} /></WithNext>} />
+                <Route path="/create-image" element={<WithNext next="library"><CreateImage user={user || GUEST_USER} /></WithNext>} />
+                <Route path="/ai-library" element={<WithNext next="publish"><AILibrary user={user || GUEST_USER} /></WithNext>} />
+                {/* Publishing & account pages: require sign-in (they operate on
+                    the user's real connected social accounts). */}
                 <Route path="/publish-plan" element={isAuthenticated ? <WithNext next="reports"><PublishPlan user={user} /></WithNext> : <LoginRequired page="publish" />} />
                 <Route path="/settings" element={isAuthenticated ? <Connections user={user} /> : <LoginRequired page="accounts" />} />
                 <Route path="/profile" element={isAuthenticated ? <Profile user={user} /> : <LoginRequired page="accounts" />} />

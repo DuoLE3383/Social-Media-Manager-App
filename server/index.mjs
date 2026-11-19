@@ -36,6 +36,10 @@ const ORIGIN = process.env.APP_ORIGIN || 'http://localhost:3000';
 const ALLOWED_ORIGINS = new Set([ORIGIN, ...(process.env.CORS_ORIGINS || '').split(',')].map((origin) => origin.trim()).filter(Boolean));
 const WINDOW_MS = 60_000;
 const RATE_LIMIT = Number(process.env.RATE_LIMIT_PER_MINUTE || 20);
+// Guest (trial) AI access: signed-out visitors may use every AI feature with a
+// stricter per-IP rate limit. Publishing/account endpoints still require auth.
+const ALLOW_GUEST_AI = process.env.ALLOW_GUEST_AI !== 'false';
+const GUEST_RATE_LIMIT = Number(process.env.GUEST_RATE_LIMIT_PER_MINUTE || 6);
 const requests = new Map();
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
@@ -219,7 +223,7 @@ async function bodyJson(req) {
   catch { throw Object.assign(new Error('Request body must be valid JSON.'), { status: 400 }); }
 }
 
-function checkRateLimit(key) {
+function checkRateLimit(key, limit = RATE_LIMIT) {
   const now = Date.now();
   const entry = requests.get(key);
   if (!entry || now - entry.startedAt > WINDOW_MS) {
@@ -227,7 +231,14 @@ function checkRateLimit(key) {
     return true;
   }
   entry.count += 1;
-  return entry.count <= RATE_LIMIT;
+  return entry.count <= limit;
+}
+
+// Rate limit for AI endpoints: signed-in users get the normal quota, guests
+// get a smaller per-IP quota so trial mode cannot exhaust the LLM.
+function aiRateLimitOk(user, scope) {
+  const guest = user.id.startsWith('guest:');
+  return checkRateLimit(`${scope}:${user.id}`, guest ? GUEST_RATE_LIMIT : RATE_LIMIT);
 }
 
 
@@ -241,6 +252,25 @@ async function authenticatedUser(req) {
   if (!response.ok) throw Object.assign(new Error('Your session is invalid or expired. Sign in again.'), { status: 401 });
   const user = await response.json();
   return { id: user.id };
+}
+
+// Identity for AI-generation endpoints (prompts, agents, images, evolution).
+// Signed-in users are validated as usual; guests (trial mode) are accepted
+// without a token and identified by IP, with a stricter rate limit applied in
+// aiRateLimitOk(). Publishing and account endpoints keep authenticatedUser().
+async function aiUser(req) {
+  const token = req.headers.authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
+  if (token && authConfigured) {
+    const response = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/auth/v1/user`, {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(10_000)
+    });
+    if (!response.ok) throw Object.assign(new Error('Your session is invalid or expired. Sign in again.'), { status: 401 });
+    const user = await response.json();
+    return { id: user.id };
+  }
+  if (!authConfigured) return { id: req.socket.remoteAddress || 'local-demo' };
+  if (!ALLOW_GUEST_AI) throw Object.assign(new Error('Sign in to run prompts.'), { status: 401 });
+  return { id: `guest:${req.socket.remoteAddress || 'unknown'}` };
 }
 
 function metaConfigured() {
@@ -1091,6 +1121,101 @@ async function generate(prompt, system, tier = 'default', signal, opts = {}) {
   throw Object.assign(new Error('Unsupported LLM_PROVIDER. Choose ollama, openai, or anthropic.'), { status: 503 });
 }
 
+// ---- Agent evolution -------------------------------------------------------
+// The "Tiến hoá Agent" feature: after a real agent run or after reviewing post
+// performance, the LLM analyses the results and returns an improved version of
+// the agent (new prompts + a list of concrete improvements). Small local models
+// are asked for ONE JSON object; the parser below tries strict JSON first and
+// has no silent fallbacks — if the model rambles, we surface ok:false and the
+// raw text so the UI can still show it.
+function parseEvolvedAgent(raw) {
+  const text = String(raw || '');
+  const start = text.indexOf('{');
+  if (start === -1) return null;
+  // Brace-match the first JSON object (tolerates fences/prose around it).
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  let end = -1;
+  for (let i = start; i < text.length; i += 1) {
+    const ch = text[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === '{') depth += 1;
+    else if (ch === '}') {
+      depth -= 1;
+      if (depth === 0) { end = i + 1; break; }
+    }
+  }
+  if (end === -1) return null;
+  let data;
+  try { data = JSON.parse(text.slice(start, end)); } catch { return null; }
+  if (!data || !Array.isArray(data.steps)) return null;
+  const steps = data.steps
+    .filter((s) => s && typeof s.prompt === 'string' && s.prompt.trim())
+    .slice(0, 12)
+    .map((s, i) => ({ title: String(s.title || `Bước ${i + 1}`).slice(0, 120), prompt: String(s.prompt).slice(0, 6_000) }));
+  if (!steps.length) return null;
+  return {
+    name: typeof data.name === 'string' ? data.name.trim().slice(0, 120) : '',
+    desc: typeof data.desc === 'string' ? data.desc.trim().slice(0, 200) : '',
+    steps,
+    improvements: Array.isArray(data.improvements)
+      ? data.improvements.filter((x) => typeof x === 'string' && x.trim()).slice(0, 6).map((x) => x.trim().slice(0, 300))
+      : [],
+    summary: typeof data.summary === 'string' ? data.summary.trim().slice(0, 800) : '',
+  };
+}
+
+function evolvePrompt(agent, results, language) {
+  const vi = language !== 'en';
+  const stepLines = agent.steps.map((s, i) => `${i + 1}. [${s.title}] ${s.prompt}`).join('\n');
+  if (vi) {
+    return `## AGENT HIỆN TẠI
+Tên: ${agent.name}
+Mô tả: ${agent.desc || '(không có)'}
+${agent.account ? `Tài khoản dự án: ${agent.account}\n` : ''}${agent.idea ? `Ý tưởng gốc: ${agent.idea}\n` : ''}
+Các bước hiện tại:
+${stepLines}
+
+## KẾT QUẢ THỰC TẾ (kết quả chạy agent gần nhất / số liệu bài đăng)
+${results || '(chưa có dữ liệu — hãy cải thiện dựa trên kinh nghiệm content marketing chung)'}
+
+## NHIỆM VỤ
+Phân tích kết quả trên, tìm điểm yếu (nội dung dài, thiếu hook, prompt mơ hồ, sai biến, lặp ý...), rồi viết PHIÊN BẢN AGENT ĐÃ TIẾN HOÁ tốt hơn.
+Quy tắc bắt buộc:
+- Giữ đúng biến {{input}} (đề bài) và {{prev}} (kết quả bước trước) trong prompt; bước 1 chỉ dùng {{input}}.
+- Mỗi prompt ngắn gọn dưới 600 ký tự, tối đa 6 bước.
+- Nói tiếng Việt.
+Chỉ trả về MỘT khối JSON hợp lệ theo đúng mẫu:
+{"name":"tên agent đã tiến hoá","desc":"mô tả 1 câu","steps":[{"title":"tên bước","prompt":"nội dung prompt"}],"improvements":["cải tiến 1","cải tiến 2","cải tiến 3"],"summary":"2-3 câu giải thích vì sao bản mới tốt hơn dựa trên kết quả"}`;
+  }
+  return `## CURRENT AGENT
+Name: ${agent.name}
+Description: ${agent.desc || '(none)'}
+${agent.account ? `Project account: ${agent.account}\n` : ''}${agent.idea ? `Original idea: ${agent.idea}\n` : ''}
+Current steps:
+${stepLines}
+
+## ACTUAL RESULTS (latest agent run / post performance data)
+${results || '(no data yet — improve based on general content-marketing best practices)'}
+
+## TASK
+Analyse the results above, find weaknesses (verbose copy, weak hooks, vague prompts, wrong variables, repeated ideas...), then write the EVOLVED version of the agent.
+Hard rules:
+- Keep the {{input}} (task) and {{prev}} (previous step output) variables in every prompt; step 1 uses {{input}} only.
+- Each prompt under 600 characters, at most 6 steps.
+- Write in English.
+Return ONE valid JSON block exactly like:
+{"name":"evolved agent name","desc":"one-line description","steps":[{"title":"step title","prompt":"prompt body"}],"improvements":["improvement 1","improvement 2","improvement 3"],"summary":"2-3 sentences on why the new version performs better"}`;
+}
+
+
 const server = http.createServer(async (req, res) => {
   const origin = req.headers.origin;
   if (origin && ALLOWED_ORIGINS.has(origin)) {
@@ -1398,8 +1523,8 @@ const server = http.createServer(async (req, res) => {
   }
   if (req.method === 'POST' && url.pathname === '/api/images/generate') {
     try {
-      const user = await authenticatedUser(req);
-      if (!checkRateLimit(`img:${user.id}`)) { send(res, 429, { error: 'Image rate limit reached. Wait a minute and try again.' }); return; }
+      const user = await aiUser(req);
+      if (!aiRateLimitOk(user, 'img')) { send(res, 429, { error: 'Image rate limit reached. Wait a minute and try again.' }); return; }
       const input = await bodyJson(req);
       const prompt = typeof input.prompt === 'string' ? input.prompt.trim() : '';
       if (!prompt || prompt.length > 4000) { send(res, 400, { error: 'Image prompt is required and must be under 4,000 characters.' }); return; }
@@ -1426,8 +1551,8 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'POST' && url.pathname === '/api/agents/run') {
     try {
       const abortSignal = clientAbortSignal(req, res);
-      const user = await authenticatedUser(req);
-      if (!checkRateLimit(`agent:${user.id}`)) { send(res, 429, { error: 'Agent rate limit reached. Wait a minute and try again.' }); return; }
+      const user = await aiUser(req);
+      if (!aiRateLimitOk(user, 'agent')) { send(res, 429, { error: 'Agent rate limit reached. Wait a minute and try again.' }); return; }
       const input = await bodyJson(req);
       const rawSteps = Array.isArray(input.steps) ? input.steps : [];
       if (!rawSteps.length || rawSteps.length > 12) { send(res, 400, { error: 'An agent run needs between 1 and 12 steps.' }); return; }
@@ -1476,11 +1601,70 @@ const server = http.createServer(async (req, res) => {
     }
     return;
   }
+  // Agent evolution: analyse an agent's real results (latest run transcript or
+  // post performance data) and return an improved version of it. Guests are
+  // allowed (aiUser) because this is a creation feature, not publishing.
+  if (req.method === 'POST' && url.pathname === '/api/agent/evolve') {
+    try {
+      const abortSignal = clientAbortSignal(req, res);
+      const user = await aiUser(req);
+      if (!aiRateLimitOk(user, 'evolve')) { send(res, 429, { error: 'Evolution rate limit reached. Wait a minute and try again.' }); return; }
+      const input = await bodyJson(req);
+      const rawAgent = input.agent && typeof input.agent === 'object' ? input.agent : {};
+      const name = typeof rawAgent.name === 'string' ? rawAgent.name.trim().slice(0, 120) : '';
+      if (!name) { send(res, 400, { error: 'Agent name is required.' }); return; }
+      const rawSteps = Array.isArray(rawAgent.steps) ? rawAgent.steps : [];
+      if (!rawSteps.length || rawSteps.length > 12) { send(res, 400, { error: 'The agent needs between 1 and 12 steps to evolve.' }); return; }
+      const steps = [];
+      for (const [index, step] of rawSteps.entries()) {
+        const prompt = typeof step?.prompt === 'string' ? step.prompt.slice(0, 6_000) : '';
+        if (!prompt.trim()) { send(res, 400, { error: `Step ${index + 1} is missing its prompt.` }); return; }
+        steps.push({ title: String(step.title || `Bước ${index + 1}`).slice(0, 120), prompt });
+      }
+      const results = typeof input.results === 'string' ? input.results.trim().slice(0, 8_000) : '';
+      const language = input.language === 'en' || rawAgent.language === 'en' ? 'en' : 'vi';
+      const agentForPrompt = {
+        name,
+        desc: typeof rawAgent.desc === 'string' ? rawAgent.desc.slice(0, 200) : '',
+        account: typeof rawAgent.account === 'string' ? rawAgent.account.slice(0, 120) : '',
+        idea: typeof rawAgent.idea === 'string' ? rawAgent.idea.slice(0, 400) : '',
+        steps,
+      };
+      const system = language === 'en'
+        ? 'You are an AI agent coach for social-media content agents. Analyse real results, find weaknesses and return a strictly valid JSON object. No prose outside the JSON.'
+        : 'Bạn là huấn luyện viên AI cho các agent content marketing. Phân tích kết quả thực tế, tìm điểm yếu và trả về MỘT khối JSON hợp lệ. Không viết gì ngoài JSON.';
+      const startedAt = Date.now();
+      const result = await generate(evolvePrompt(agentForPrompt, results, language), system, 'default', abortSignal, { temperature: 0.4, maxTokens: 1_800 });
+      const evolved = parseEvolvedAgent(result.text);
+      if (!evolved) {
+        send(res, 200, {
+          ok: false,
+          raw: result.text.slice(0, 8_000),
+          message: language === 'en'
+            ? 'The model did not return valid JSON. The raw response is shown so you can still use the suggestions.'
+            : 'Model trả về không đúng định dạng JSON. Phản hồi gốc vẫn hiển thị bên dưới để bạn tham khảo.',
+          model: result.model, elapsedMs: Date.now() - startedAt, createdAt: new Date().toISOString(),
+        });
+        return;
+      }
+      send(res, 200, { ok: true, agent: evolved, model: result.model, elapsedMs: Date.now() - startedAt, createdAt: new Date().toISOString() });
+    } catch (error) {
+      if (error.code === 'CANCELLED' && (res.destroyed || res.writableEnded)) return;
+      const messages = {
+        TIMEOUT: 'The model took too long to evolve this agent. Try again with fewer steps.',
+        PROVIDER_DOWN: 'The AI provider is not responding. Check that Ollama is running and try again.',
+        RATE_LIMITED: error.message,
+        QUEUE_FULL: error.message,
+      };
+      send(res, error.status || 502, { error: error.code || 'EVOLVE_ERROR', message: messages[error.code] || error.message || 'Agent evolution failed.' });
+    }
+    return;
+  }
   if (req.method === 'POST' && url.pathname === '/api/prompts/run') {
     try {
       const abortSignal = clientAbortSignal(req, res);
-      const user = await authenticatedUser(req);
-      if (!checkRateLimit(user.id)) { send(res, 429, { error: 'Rate limit reached. Wait a minute and try again.' }); return; }
+      const user = await aiUser(req);
+      if (!aiRateLimitOk(user, 'prompt')) { send(res, 429, { error: 'Rate limit reached. Wait a minute and try again.' }); return; }
       const input = await bodyJson(req);
       const prompt = typeof input.prompt === 'string' ? input.prompt.trim() : '';
       if (!prompt || prompt.length > 24_000) { send(res, 400, { error: 'Prompt is required and must be under 24,000 characters.' }); return; }
