@@ -30,6 +30,7 @@ import {
   faDna,
 } from '@fortawesome/free-solid-svg-icons';
 import { useLang } from '../lib/i18n';
+import { apiUrl } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import { usePromptRunner } from '../hooks/usePromptRunner';
 import { saveAgentRun } from '../lib/agentRuns';
@@ -344,7 +345,13 @@ const AgentStudio = ({ user }) => {
 
   const [wStep, setWStep] = useState(0);
 
-  const [input, setInput] = useState('');
+  // Prefill the run input with the step-1 handoff prompt — the whole point of
+  // the wizard chain is that the b1 prompt DRIVES the agent. An empty box here
+  // forced the user to retype the topic and made step 1 look useless.
+  const [input, setInput] = useState(() => {
+    const handoff = readIdeaHandoff();
+    return handoff ? String(handoff.prompt).slice(0, 400) : '';
+  });
   const [stepStates, setStepStates] = useState([]); // [{status, text, ms}]
   const [totalMs, setTotalMs] = useState(0);
   const [running, setRunning] = useState(false);
@@ -371,6 +378,16 @@ const AgentStudio = ({ user }) => {
     try { sessionStorage.removeItem(IDEA_HANDOFF_KEY); } catch { /* ignore */ }
   }, []);
 
+  // The "server must be running" note is only honest when the server is
+  // actually unreachable — showing it unconditionally read like an error
+  // while everything worked.
+  const [serverOnline, setServerOnline] = useState(true);
+  useEffect(() => {
+    fetch(apiUrl('/api/health'))
+      .then((r) => setServerOnline(r.ok))
+      .catch(() => setServerOnline(false));
+  }, []);
+
   useEffect(() => {
     try { localStorage.setItem(PROJECT_ACCOUNT_KEY, accountName.trim()); } catch { /* ignore */ }
   }, [accountName]);
@@ -383,12 +400,25 @@ const AgentStudio = ({ user }) => {
   };
 
   // Wizard step 3 handoff: send the prompt (b1) + agent copy (b2) to Create Image.
+  // CRITICAL: the image prompt MUST be built from what the agent actually
+  // produced — otherwise the whole step-2 run "has no effect" on the images
+  // (the old code sent only the short idea and left the agent output unused).
+  // Image models need visual descriptions and the LAST step is often a
+  // caption/hashtag block or a checklist, so prefer the most visual step
+  // output and fall back to the last done step.
   const sendToImage = () => {
-    const lastDone = [...stepStates].reverse().find((s) => s.status === 'done' && s.text);
+    const doneSteps = stepStates.filter((s) => s.status === 'done' && s.text);
+    const lastDone = doneSteps[doneSteps.length - 1] || null;
+    const VISUAL_RE = /(ảnh|hình ảnh|bối cảnh|cảnh \d|màu|ánh sáng|khung hình|góc máy|poster|banner|thumbnail|scene|visual|background)/i;
+    const bestVisual = ([...doneSteps].reverse().find((s) => VISUAL_RE.test(s.text)) || lastDone);
+    // Hashtags make sense in a post but pollute an image prompt.
+    const visualText = bestVisual ? String(bestVisual.text).replace(/#[\wÀ-ỹ]+/gi, '').trim().slice(0, 900) : '';
+    const ideaText = projectIdea.trim().replace(/[.。…\s]+$/, '');
+    const composed = [ideaText, visualText].filter(Boolean).join('. ').slice(0, 1400);
     try {
       sessionStorage.setItem('aiSocialImageHandoff', JSON.stringify({
-        prompt: input.trim() || projectIdea.trim(),
-        idea: projectIdea.trim(),
+        prompt: composed || input.trim() || ideaText,
+        idea: ideaText,
         account: accountName.trim(),
         content: lastDone ? String(lastDone.text).slice(0, 1200) : '',
         ts: Date.now(),
@@ -932,7 +962,7 @@ const AgentStudio = ({ user }) => {
           </div>
         ))}
       </div>
-      <p className="as-offline-note">{T.offlineNote}</p>
+      {!serverOnline && <p className="as-offline-note">{T.offlineNote}</p>}
       {!running && stepStates.some((s) => s.status === 'done') && mediaHandoff}
     </div>
   );
@@ -1259,7 +1289,7 @@ const AgentStudio = ({ user }) => {
                   </div>
                 ))}
               </div>
-              <p className="as-offline-note">{T.offlineNote}</p>
+              {!serverOnline && <p className="as-offline-note">{T.offlineNote}</p>}
             </section>
           </div>
         </>

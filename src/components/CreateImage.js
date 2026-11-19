@@ -142,11 +142,19 @@ const CreateImage = () => {
   // handoff) does not re-show the stale "From steps 1 & 2" bar.
   useEffect(() => {
     if (agentContext?.prompt && !prompt.trim()) {
-      setPrompt(String(agentContext.prompt).slice(0, 900));
+      setPrompt(String(agentContext.prompt).slice(0, 1400));
     }
     try { sessionStorage.removeItem(IMAGE_HANDOFF_KEY); } catch { /* ignore */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // The composed prompt (idea + agent output) is prefilled; this button lets
+  // the user swap in the agent's verbatim copy instead of the visual pick.
+  const useVerbatimAgentCopy = () => {
+    if (!agentContext?.content) return;
+    setPrompt(String(agentContext.content).slice(0, 1400));
+    showToast(lang === 'vi' ? 'Đã thay prompt bằng nguyên văn kết quả agent' : 'Prompt replaced with the verbatim agent output');
+  };
 
   const dismissAgentContext = () => {
     setAgentContext(null);
@@ -288,16 +296,21 @@ const CreateImage = () => {
           <div className="ci-handoff-text">
             {agentContext.content ? (
               <>
-                <strong>{lang === 'vi' ? 'Từ bước 1 & 2 (wizard):' : 'From steps 1 & 2 (wizard):'}</strong>{' '}
+                <strong>{lang === 'vi'
+                  ? (agentContext.source === 'quick' ? 'Từ Prompt nhanh (bước 2):' : 'Từ bước 1 & 2 (wizard):')
+                  : (agentContext.source === 'quick' ? 'From Quick prompt (step 2):' : 'From steps 1 & 2 (wizard):')}</strong>{' '}
                 {agentContext.idea ? <em>“{agentContext.idea.length > 90 ? `${agentContext.idea.slice(0, 90)}…` : agentContext.idea}”</em> : null}
                 {agentContext.account ? <span className="ci-handoff-account"> · {lang === 'vi' ? 'Tài khoản' : 'Account'}: {agentContext.account}</span> : null}
-                <small> · {lang === 'vi' ? 'Bài viết của agent' : 'Agent copy'}: {agentContext.content.slice(0, 140)}…</small>
+                <small> · {lang === 'vi' ? 'Kết quả agent đã được đưa vào ô Prompt bên dưới — ảnh sẽ theo đúng nội dung bước 2.' : 'Agent output is now in the prompt box below — images follow the step-2 content.'} “{agentContext.content.slice(0, 140)}…”</small>
+                <button type="button" className="ci-handoff-use" onClick={useVerbatimAgentCopy}>
+                  {lang === 'vi' ? 'Dùng nguyên văn bài agent' : 'Use verbatim agent copy'}
+                </button>
               </>
             ) : (
               <>
                 <strong>{lang === 'vi' ? 'Từ Smart Prompt (bước 1):' : 'From Smart Prompt (step 1):'}</strong>{' '}
                 <em>“{agentContext.idea ? (agentContext.idea.length > 120 ? `${agentContext.idea.slice(0, 120)}…` : agentContext.idea) : agentContext.prompt?.slice(0, 120)}”</em>
-                <small> · {lang === 'vi' ? 'Chưa chạy agent — tạo ảnh minh hoạ cho ý tưởng này.' : 'No agent run yet — generating images for this idea.'}</small>
+                <small> · {lang === 'vi' ? 'Chưa chạy agent — prompt đã có trong ô bên dưới, tạo ảnh minh hoạ cho ý tưởng này.' : 'No agent run yet — the prompt is in the box below, generating images for this idea.'}</small>
               </>
             )}
           </div>

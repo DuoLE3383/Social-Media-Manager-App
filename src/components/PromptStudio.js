@@ -209,13 +209,19 @@ export default function PromptStudio({ user, embedded = false }) {
   // Wizard handoffs from the quick tab: the finished draft feeds the media
   // chain — images (step 3) and video (step 4) — exactly like the Agent
   // Builder done-step, so no dead end after a quick generation.
+  // The RESULT (the crafted draft) becomes the image prompt — the old code
+  // sent only the short input and left the generated draft unused, which made
+  // step "quick prompt" look like it had no effect on the images.
   const sendResultToImage = () => {
+    // Hashtags make sense in a post but pollute an image prompt.
+    const resultText = String(result || '').replace(/#[\wÀ-ỹ]+/gi, '').trim();
     try {
       sessionStorage.setItem('aiSocialImageHandoff', JSON.stringify({
-        prompt: prompt.trim().slice(0, 800),
-        idea: '',
+        prompt: (resultText || prompt.trim()).slice(0, 1400),
+        idea: prompt.trim().slice(0, 200),
         account: '',
         content: String(result || '').slice(0, 1200),
+        source: 'quick',
         ts: Date.now(),
       }));
     } catch { /* ignore */ }

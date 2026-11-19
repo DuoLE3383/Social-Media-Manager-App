@@ -2273,6 +2273,14 @@ html[data-theme="dark"] .sp-shortcut-btn:hover:not(:disabled) { background: #2c2
 .ci-handoff-text em { color: #5047a8; font-style: normal; font-weight: 600; }
 .ci-handoff-account { font-weight: 700; color: #2aa17a; }
 .ci-handoff-text small { display: block; color: #8b89a0; margin-top: 2px; }
+/* "Use verbatim agent copy" — small inline button under the handoff text that
+   swaps the composed prompt for the agent's raw output. */
+.ci-handoff-use {
+  margin-top: 8px; padding: 4px 10px; font-size: .78rem; font-weight: 600;
+  border-radius: 8px; border: 1px solid #c5b5f0; background: #fff; color: #5a3fd8;
+  cursor: pointer;
+}
+.ci-handoff-use:hover { background: #ece9fb; border-color: #7c6cf0; color: #4a3fd8; }
 .ci-handoff-close {
   flex: 0 0 auto; width: 28px; height: 28px; border-radius: 8px; border: 0;
   background: transparent; color: #6f6c85; cursor: pointer; display: grid; place-items: center;
@@ -2283,6 +2291,8 @@ html[data-theme="dark"] .ci-handoff-text { color: #b5b3c8; }
 html[data-theme="dark"] .ci-handoff-text strong { color: #e8e7f0; }
 html[data-theme="dark"] .ci-handoff-text em { color: #a5a0ff; }
 html[data-theme="dark"] .ci-handoff-close { color: #9a98ac; }
+html[data-theme="dark"] .ci-handoff-use { background: #2c2a44; border-color: #4a4570; color: #c8bff5; }
+html[data-theme="dark"] .ci-handoff-use:hover { background: #34334a; border-color: #6158d9; color: #b9b0ff; }
 
 /* S3: idea-only variant of the handoff bar — when the user skipped the agent
    (b1 -> b3 shortcut) the bar is shown with a softer style and honest label. */
